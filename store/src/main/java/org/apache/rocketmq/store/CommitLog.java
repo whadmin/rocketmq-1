@@ -143,22 +143,37 @@ public class CommitLog {
         return this.mappedFileQueue.deleteExpiredFileByTime(expiredTime, deleteFilesInterval, intervalForcibly, cleanImmediately);
     }
 
+
     /**
-     * Read CommitLog data, use data replication
+     * 查询指定物理偏移量所在mappedFile，并读取指定偏移量开始该mappedFile所有数据（存储在字节缓冲区中）
+     * 如果传入物理偏移量为0，那么在找不到mappedFile文件的情况下返回第一个
+     * @param offset 物理偏移
+     * @return
      */
     public SelectMappedBufferResult getData(final long offset) {
         return this.getData(offset, offset == 0);
     }
 
+
+    /**
+     * 查询指定物理偏移量所在mappedFile，并读取指定偏移量开始该mappedFile所有数据（存储在字节缓冲区中）
+     * @param offset 物理偏移
+     * @param returnFirstOnNotFound 是否在找不到mappedFile文件的情况下返回第一个
+     * @return
+     */
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
+        //通过配置文件获取CommitLog文件大小
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        //查询指定物理偏移量所在mappedFile
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);
         if (mappedFile != null) {
+            //计算mappedFile内部对应的偏移量
             int pos = (int) (offset % mappedFileSize);
+            //读取指定偏移量开始该mappedFile所有数据（存储在字节缓冲区中）
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(pos);
+            //返回
             return result;
         }
-
         return null;
     }
 

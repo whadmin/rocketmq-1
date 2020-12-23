@@ -154,32 +154,54 @@ public class IndexService {
         }
     }
 
+    /**
+     * 根据条件查询消息（条件包括指定topic+指定消息key+时间范围）
+     * 通过索引服务获取满足查询条件消息在CommitLog中物理偏移量返回结果
+     *
+     * @param topic  消息topic
+     * @param key    消息key
+     * @param maxNum 返回满足消息的最大数量
+     * @param begin  查询消息产生时间开始
+     * @param end    查询消息产生时间结束
+     * @return
+     */
     public QueryOffsetResult queryOffset(String topic, String key, int maxNum, long begin, long end) {
+        //临时存储满足
         List<Long> phyOffsets = new ArrayList<Long>(maxNum);
-
+        //临时存储最后一次更新索引数据时间
         long indexLastUpdateTimestamp = 0;
+        //临时存储最后一次更新索引消息物理偏移
         long indexLastUpdatePhyoffset = 0;
+        //计算返回满足消息的最大数量
         maxNum = Math.min(maxNum, this.defaultMessageStore.getMessageStoreConfig().getMaxMsgsNumBatch());
         try {
+            //加锁
             this.readWriteLock.readLock().lock();
+            //判断索引文件列表是否不为空
             if (!this.indexFileList.isEmpty()) {
+                //从indexFile文件列表最后一个文件依次遍历所有的indexFile
                 for (int i = this.indexFileList.size(); i > 0; i--) {
+                    //获取indexFile文件
                     IndexFile f = this.indexFileList.get(i - 1);
+                    //判断是否是最后一个indexFile文件
                     boolean lastFile = i == this.indexFileList.size();
+                    //如果是最后一个indexFile文件
                     if (lastFile) {
+                        //更新最后一次更新索引数据时间
                         indexLastUpdateTimestamp = f.getEndTimestamp();
+                        //最后一次更新索引消息物理偏移
                         indexLastUpdatePhyoffset = f.getEndPhyOffset();
                     }
-
+                    //判断当前indexFile文件是否在指定时间内存在满足条件的消息索引
                     if (f.isTimeMatched(begin, end)) {
-
+                        //在当前indexFile文件中查询指定topic+指定消息key的消息偏移
                         f.selectPhyOffset(phyOffsets, buildKey(topic, key), maxNum, begin, end, lastFile);
                     }
-
+                    // 如果当前indexFile文件第一条消息构建索引时间 小于开始时间，不在查找
                     if (f.getBeginTimestamp() < begin) {
                         break;
                     }
-
+                    //查询消息数量大于最大数量，不在查找
                     if (phyOffsets.size() >= maxNum) {
                         break;
                     }
@@ -188,9 +210,10 @@ public class IndexService {
         } catch (Exception e) {
             log.error("queryMsg exception", e);
         } finally {
+            //解锁
             this.readWriteLock.readLock().unlock();
         }
-
+        //构造返回结果
         return new QueryOffsetResult(phyOffsets, indexLastUpdateTimestamp, indexLastUpdatePhyoffset);
     }
 
