@@ -23,90 +23,92 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
- * Base interface for MQ management
+ * MQ管理的基本接口
  */
 public interface MQAdmin {
+
     /**
-     * Creates an topic
+     * 创建Topic
      *
-     * @param key accesskey
-     * @param newTopic topic name
-     * @param queueNum topic's queue number
+     * @param key      accesskey
+     * @param newTopic topic 名称
+     * @param queueNum topic queue(队列) number（数量）
      */
     void createTopic(final String key, final String newTopic, final int queueNum)
-        throws MQClientException;
+            throws MQClientException;
 
     /**
-     * Creates an topic
+     * 创建Topic
      *
-     * @param key accesskey
-     * @param newTopic topic name
-     * @param queueNum topic's queue number
-     * @param topicSysFlag topic system flag
+     * @param key          accesskey
+     * @param newTopic     topic 名称
+     * @param queueNum     topic queue(队列) number（数量）
+     * @param topicSysFlag topic 系统标识
      */
     void createTopic(String key, String newTopic, int queueNum, int topicSysFlag)
-        throws MQClientException;
+            throws MQClientException;
 
     /**
-     * Gets the message queue offset according to some time in milliseconds<br>
-     * be cautious to call because of more IO overhead
+     * 根据某个时间（以毫秒为单位）获取消息队列偏移量<br>
+     * 由于更多的IO开销，请谨慎致电
      *
-     * @param mq Instance of MessageQueue
-     * @param timestamp from when in milliseconds.
+     * @param mq        消息队列
+     * @param timestamp
      * @return offset
      */
     long searchOffset(final MessageQueue mq, final long timestamp) throws MQClientException;
 
     /**
-     * Gets the max offset
+     * 获取指定消息队列最大偏移
      *
-     * @param mq Instance of MessageQueue
-     * @return the max offset
+     * @param mq 消息队列
+     * @return 最大偏移
      */
     long maxOffset(final MessageQueue mq) throws MQClientException;
 
     /**
-     * Gets the minimum offset
+     * 获取指定消息队列最小偏移
      *
-     * @param mq Instance of MessageQueue
-     * @return the minimum offset
+     * @param mq 消息队列
+     * @return 最小偏移
      */
     long minOffset(final MessageQueue mq) throws MQClientException;
 
     /**
-     * Gets the earliest stored message time
+     * 获取指定消息队最早的存储消息时间
      *
-     * @param mq Instance of MessageQueue
-     * @return the time in microseconds
+     * @param mq 消息队列
+     * @return 最早的存储消息时间
      */
     long earliestMsgStoreTime(final MessageQueue mq) throws MQClientException;
 
     /**
-     * Query message according to message id
+     * 根据消息ID查询消息
      *
-     * @param offsetMsgId message id
+     * @param offsetMsgId 消息id
      * @return message
      */
     MessageExt viewMessage(final String offsetMsgId) throws RemotingException, MQBrokerException,
-        InterruptedException, MQClientException;
+            InterruptedException, MQClientException;
 
     /**
-     * Query messages
+     * 根据条件查询消息（条件包括指定topic+指定消息key+时间范围）的消息
      *
-     * @param topic message topic
-     * @param key message key index word
-     * @param maxNum max message number
-     * @param begin from when
-     * @param end to when
+     * @param topic  消息topic
+     * @param key    消息key
+     * @param maxNum 返回满足消息的最大数量
+     * @param begin  查询消息产生时间开始
+     * @param end    查询消息产生时间结束
      * @return Instance of QueryResult
      */
     QueryResult queryMessage(final String topic, final String key, final int maxNum, final long begin,
-        final long end) throws MQClientException, InterruptedException;
-
+                             final long end) throws MQClientException, InterruptedException;
     /**
-     * @return The {@code MessageExt} of given msgId
+     * 根据消息ID查询消息
+     * 1 优先通过消息ID查询消息
+     * 2 如果1查询不到根据topic+消息key(key=msgId)查询消息
      */
     MessageExt viewMessage(String topic,
-        String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
+                           String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
 
 }
