@@ -27,26 +27,71 @@ import java.util.regex.Pattern;
 
 public class TopicValidator {
 
+    /**
+     * 支持自动创建主题的Topic
+     */
     public static final String AUTO_CREATE_TOPIC_KEY_TOPIC = "TBW102"; // Will be created at broker when isAutoCreateTopicEnable
+
+    /**
+     * 系统存放延时消息Topic
+     */
     public static final String RMQ_SYS_SCHEDULE_TOPIC = "SCHEDULE_TOPIC_XXXX";
+
+    /**
+     * 系统存放基准测试消息Topic
+     */
     public static final String RMQ_SYS_BENCHMARK_TOPIC = "BenchmarkTest";
+
+    /**
+     * HALF消息在被投递到Mq服务器后,系统将HALF消息添加到的Topic
+     */
     public static final String RMQ_SYS_TRANS_HALF_TOPIC = "RMQ_SYS_TRANS_HALF_TOPIC";
-    public static final String RMQ_SYS_TRACE_TOPIC = "RMQ_SYS_TRACE_TOPIC";
+
+    /**
+     * HALF消息在被commit或者rollback处理后,系统将HALF消息添加到的Topic
+     */
     public static final String RMQ_SYS_TRANS_OP_HALF_TOPIC = "RMQ_SYS_TRANS_OP_HALF_TOPIC";
+
+    /**
+     * HALF消息在系统内超时未处理存放的Topic
+     */
     public static final String RMQ_SYS_TRANS_CHECK_MAX_TIME_TOPIC = "TRANS_CHECK_MAX_TIME_TOPIC";
+
+    /**
+     * 系统存放TRACE消息(消息轨迹消息)Topic
+     */
+    public static final String RMQ_SYS_TRACE_TOPIC = "RMQ_SYS_TRACE_TOPIC";
+
+    /**
+     * 系统存放自身测试Topic
+     */
     public static final String RMQ_SYS_SELF_TEST_TOPIC = "SELF_TEST_TOPIC";
+
+    /**
+     *
+     */
     public static final String RMQ_SYS_OFFSET_MOVED_EVENT = "OFFSET_MOVED_EVENT";
+
 
     public static final String SYSTEM_TOPIC_PREFIX = "rmq_sys_";
 
     private static final String VALID_PATTERN_STR = "^[%|a-zA-Z0-9_-]+$";
+
+
     private static final Pattern PATTERN = Pattern.compile(VALID_PATTERN_STR);
+
+    /**
+     * Topic最大长度
+     */
     private static final int TOPIC_MAX_LENGTH = 127;
 
+    /**
+     * 系统Topic组
+     */
     private static final Set<String> SYSTEM_TOPIC_SET = new HashSet<String>();
 
     /**
-     * Topics'set which client can not send msg!
+     * 不与许
      */
     private static final Set<String> NOT_ALLOWED_SEND_TOPIC_SET = new HashSet<String>();
 
