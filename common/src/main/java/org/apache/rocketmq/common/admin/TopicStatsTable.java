@@ -17,10 +17,18 @@
 package org.apache.rocketmq.common.admin;
 
 import java.util.HashMap;
+
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * Topic 状态信息
+ */
 public class TopicStatsTable extends RemotingSerializable {
+
+    /**
+     * 存储Topic中每个MessageQueue信息，以及每个MessageQueue逻辑偏移信息
+     */
     private HashMap<MessageQueue, TopicOffset> offsetTable = new HashMap<MessageQueue, TopicOffset>();
 
     public HashMap<MessageQueue, TopicOffset> getOffsetTable() {

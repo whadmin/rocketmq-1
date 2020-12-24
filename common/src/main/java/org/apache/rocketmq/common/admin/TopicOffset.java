@@ -16,9 +16,24 @@
  */
 package org.apache.rocketmq.common.admin;
 
+/**
+ * 每个MessageQueue逻辑偏移信息
+ */
 public class TopicOffset {
+
+    /**
+     * 最小逻辑偏移
+     */
     private long minOffset;
+
+    /**
+     * 最大逻辑偏移
+     */
     private long maxOffset;
+
+    /**
+     * 最后更新时间戳
+     */
     private long lastUpdateTimestamp;
 
     public long getMinOffset() {

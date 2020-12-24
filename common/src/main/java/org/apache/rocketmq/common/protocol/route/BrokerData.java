@@ -21,13 +21,40 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+
 import org.apache.rocketmq.common.MixAll;
 
+/**
+ * BrokerData 用来描述一个Broker节点数据。
+ * 一个Broker节点包含master和一个或多个Slave.
+ * <p>
+ * 1 在mq中每一个Broker节点的都是相对独立的.他们是不会相互通信的.
+ * 2 在mq中每一个Broker节点必须从属于一个集群.反之一个集群有一个或多个BrokerData.
+ * 3 在mq中每一个Broker节点内保存着master和Slave物理地址.
+ * 4 在mq中每一个Broker节点会告知namerSrv 存储哪些topic消息。因此当我们对一个集群message消息做分片处理只需要将一个topic分配给唯一一个BrokerData即可.
+ */
 public class BrokerData implements Comparable<BrokerData> {
+
+    /**
+     * 所属集群
+     */
     private String cluster;
+
+    /**
+     * Broker名称（Broker下可以分为master和slave 有相互关系的master Broker和slave Broker名称相同）
+     */
     private String brokerName;
+
+    /**
+     * brokerId=0代表master  brokerId>0代表slave 参照 MixAll.MASTER_ID*
+     * 同一个brokerName下可以有一个Master和多个Slave，
+     * brokerAddrs是一个集合 表示同一个brokerName 下Master和多个Slave的物理地址
+     **/
     private HashMap<Long/* brokerId */, String/* broker address */> brokerAddrs;
 
+    /**
+     * 在选择一个broker进行连接的时候随机数
+     */
     private final Random random = new Random();
 
     public BrokerData() {
@@ -41,9 +68,8 @@ public class BrokerData implements Comparable<BrokerData> {
     }
 
     /**
-     * Selects a (preferably master) broker address from the registered list.
-     * If the master's address cannot be found, a slave broker address is selected in a random manner.
-     *
+     * 选择一个broker地址，有master就选master的地址
+     * 否则随机选一个slave的地址
      * @return Broker address.
      */
     public String selectBrokerAddr() {
