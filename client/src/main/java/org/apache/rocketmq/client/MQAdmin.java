@@ -48,9 +48,11 @@ public interface MQAdmin {
     void createTopic(String key, String newTopic, int queueNum, int topicSysFlag)
             throws MQClientException;
 
+
     /**
-     * 根据某个时间（以毫秒为单位）获取消息队列偏移量<br>
-     * 由于更多的IO开销，请谨慎致电
+     * 根据某个时间（以毫秒为单位）获取消息队列偏移量<br> 由于更多的IO开销，请谨慎致电
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.SEARCH_OFFSET_BY_TIMESTAMP
      *
      * @param mq        消息队列
      * @param timestamp
@@ -59,7 +61,9 @@ public interface MQAdmin {
     long searchOffset(final MessageQueue mq, final long timestamp) throws MQClientException;
 
     /**
-     * 获取指定消息队列最大偏移
+     * 获取指定消息队列最大逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MAX_OFFSET
      *
      * @param mq 消息队列
      * @return 最大偏移
@@ -67,7 +71,9 @@ public interface MQAdmin {
     long maxOffset(final MessageQueue mq) throws MQClientException;
 
     /**
-     * 获取指定消息队列最小偏移
+     * 获取指定消息队列最小逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MIN_OFFSET
      *
      * @param mq 消息队列
      * @return 最小偏移
