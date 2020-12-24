@@ -29,12 +29,40 @@ import org.apache.rocketmq.store.MappedFile;
 
 public class IndexFile {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
+
+    /**
+     * 每一个槽数据占据字节大小
+     */
     private static int hashSlotSize = 4;
+
+    /**
+     * 每一个消息在索引链表中占据字节大小
+     */
     private static int indexSize = 20;
+
+    /**
+     * 每一个key创建时在槽中初始值
+     */
     private static int invalidIndex = 0;
+
+    /**
+     * hash槽的个数，默认500w
+     */
     private final int hashSlotNum;
+
+    /**
+     * 最多记录的索引条数 默认2千万
+     */
     private final int indexNum;
+
+    /**
+     * mappedFile
+     */
     private final MappedFile mappedFile;
+
+    /**
+     * 没有用到
+     */
     private final FileChannel fileChannel;
     private final MappedByteBuffer mappedByteBuffer;
     private final IndexHeader indexHeader;

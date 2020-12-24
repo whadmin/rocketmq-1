@@ -71,6 +71,9 @@ public class DefaultMessageStore implements MessageStore {
     // CommitLog
     private final CommitLog commitLog;
 
+    /**
+     * topic-queueId 对应ConsumeQueue   ConsumeQueue:MQ将消息坐标数据核心处理类
+     */
     private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
     private final FlushConsumeQueueService flushConsumeQueueService;
@@ -719,9 +722,24 @@ public class DefaultMessageStore implements MessageStore {
         return getResult;
     }
 
+    /**
+     *  通过消息topic+队列id 获取指定消息队列最大逻辑偏移量（下标）
+     *
+     *  在消息队列中每条消息都通过ConsumeQueue.CQ_STORE_UNIT_SIZ定长存储消息的索引数据（在CommitLog真实物理偏移量）
+     *  这里逻辑偏移量表示在ConsumeQueue队列中消息下标，
+     *
+     *  逻辑偏移量为1索引数据存储在 ConsumeQueue 物理偏移量 1×ConsumeQueue.CQ_STORE_UNIT_SIZE 地址后
+     *  逻辑偏移量为2索引数据存储在 ConsumeQueue 物理偏移量 2×ConsumeQueue.CQ_STORE_UNIT_SIZE 地址后
+     *
+     * @param topic   消息topic
+     * @param queueId 队列id
+     * @return
+     */
     public long getMaxOffsetInQueue(String topic, int queueId) {
+        ////通过消息topic+queueId(消息队列id) 获取ConsumeQueue（消息队列）
         ConsumeQueue logic = this.findConsumeQueue(topic, queueId);
         if (logic != null) {
+            //获取指定消息队列最大逻辑偏移量
             long offset = logic.getMaxOffsetInQueue();
             return offset;
         }
@@ -729,12 +747,26 @@ public class DefaultMessageStore implements MessageStore {
         return 0;
     }
 
+    /**
+     *  通过消息topic+队列id 获取指定消息队列最小逻辑偏移量（下标）
+     *
+     *  在消息队列中每条消息都通过ConsumeQueue.CQ_STORE_UNIT_SIZ定长存储消息的索引数据（在CommitLog真实物理偏移量）
+     *  这里逻辑偏移量表示在ConsumeQueue队列中消息下标，
+     *
+     *  逻辑偏移量为1索引数据存储在 ConsumeQueue 物理偏移量 1×ConsumeQueue.CQ_STORE_UNIT_SIZE 地址后
+     *  逻辑偏移量为2索引数据存储在 ConsumeQueue 物理偏移量 2×ConsumeQueue.CQ_STORE_UNIT_SIZE 地址后
+     *
+     * @param topic   消息topic
+     * @param queueId 队列id
+     * @return
+     */
     public long getMinOffsetInQueue(String topic, int queueId) {
+        ////通过消息topic+queueId(消息队列id) 获取ConsumeQueue（消息队列）
         ConsumeQueue logic = this.findConsumeQueue(topic, queueId);
         if (logic != null) {
+            //获取指定消息队列最小逻辑偏移量
             return logic.getMinOffsetInQueue();
         }
-
         return -1;
     }
 
@@ -756,12 +788,21 @@ public class DefaultMessageStore implements MessageStore {
         return 0;
     }
 
+    /**
+     * 根据某个时间（以毫秒为单位）获取消息队列偏移量
+     *
+     * @param topic     消息Topic
+     * @param queueId   消息队列ID
+     * @param timestamp 时间戳
+     * @return
+     */
     public long getOffsetInQueueByTime(String topic, int queueId, long timestamp) {
+        //通过消息topic+queueId(消息队列id) 获取ConsumeQueue（消息队列）
         ConsumeQueue logic = this.findConsumeQueue(topic, queueId);
         if (logic != null) {
+            //获取ConsumeQueue某个时间（以毫秒为单位）获取消息队列偏移量
             return logic.getOffsetInQueueByTime(timestamp);
         }
-
         return 0;
     }
 
@@ -792,7 +833,7 @@ public class DefaultMessageStore implements MessageStore {
 
     /**
      * 通过消息物理偏移量,从ommitLog中消息全部数据（保存在字节缓冲区中）
-     *
+     * <p>
      * 1 通过消息物理偏移量，读取第一个4字节获取消息总长度 TOTALSIZE
      * 2 通过消息物理偏移量+消息总长度TOTALSIZE 获取消息全部数据（保存在字节缓冲区中）
      *
@@ -1241,8 +1282,18 @@ public class DefaultMessageStore implements MessageStore {
         return null;
     }
 
+    /**
+     * 通过消息topic+queueId(消息队列id) 获取ConsumeQueue（消息队列）
+     *
+     * @param topic   消息topic
+     * @param queueId 消息队列id
+     * @return ConsumeQueue（消息队列）
+     */
     public ConsumeQueue findConsumeQueue(String topic, int queueId) {
+        //消息topic 所有的 ConsumeQueue
         ConcurrentMap<Integer, ConsumeQueue> map = consumeQueueTable.get(topic);
+
+        //如果mao不存在进行初始化
         if (null == map) {
             ConcurrentMap<Integer, ConsumeQueue> newMap = new ConcurrentHashMap<Integer, ConsumeQueue>(128);
             ConcurrentMap<Integer, ConsumeQueue> oldMap = consumeQueueTable.putIfAbsent(topic, newMap);
@@ -1252,15 +1303,19 @@ public class DefaultMessageStore implements MessageStore {
                 map = newMap;
             }
         }
-
+        //获取指定id对应的ConsumeQueue
         ConsumeQueue logic = map.get(queueId);
+
+        //如果logic不存在，进行初始化
         if (null == logic) {
+            //创建一个ConsumeQueue
             ConsumeQueue newLogic = new ConsumeQueue(
                     topic,
                     queueId,
                     StorePathConfigHelper.getStorePathConsumeQueue(this.messageStoreConfig.getStorePathRootDir()),
                     this.getMessageStoreConfig().getMappedFileSizeConsumeQueue(),
                     this);
+            //添加到map中
             ConsumeQueue oldLogic = map.putIfAbsent(queueId, newLogic);
             if (oldLogic != null) {
                 logic = oldLogic;
@@ -1268,7 +1323,7 @@ public class DefaultMessageStore implements MessageStore {
                 logic = newLogic;
             }
         }
-
+        //返回
         return logic;
     }
 
