@@ -1748,19 +1748,33 @@ public class MQClientAPIImpl {
         throw new MQBrokerException(response.getCode(), response.getRemark());
     }
 
+    /**
+     * 获取系统Topic列表
+     * @param timeoutMillis  超时时间
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
     public TopicList getSystemTopicList(
         final long timeoutMillis) throws RemotingException, MQClientException, InterruptedException {
+        //创建一个请求命令
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.GET_SYSTEM_TOPIC_LIST_FROM_NS, null);
-
+        //使用RPC客户同步远程调用
         RemotingCommand response = this.remotingClient.invokeSync(null, request, timeoutMillis);
         assert response != null;
+        //判断响应命令编码
         switch (response.getCode()) {
+            //判断编码是否是成功
             case ResponseCode.SUCCESS: {
+                //获取响应的数据(字节码)
                 byte[] body = response.getBody();
                 if (body != null) {
+                    //读取字节码转成TopicList
                     TopicList topicList = TopicList.decode(response.getBody(), TopicList.class);
                     if (topicList.getTopicList() != null && !topicList.getTopicList().isEmpty()
                         && !UtilAll.isBlank(topicList.getBrokerAddr())) {
+                        //从指定Broker
                         TopicList tmp = getSystemTopicListFromBroker(topicList.getBrokerAddr(), timeoutMillis);
                         if (tmp.getTopicList() != null && !tmp.getTopicList().isEmpty()) {
                             topicList.getTopicList().addAll(tmp.getTopicList());
