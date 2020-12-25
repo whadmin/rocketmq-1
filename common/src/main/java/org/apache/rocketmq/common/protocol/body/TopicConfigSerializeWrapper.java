@@ -19,13 +19,24 @@ package org.apache.rocketmq.common.protocol.body;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
 import org.apache.rocketmq.common.DataVersion;
 import org.apache.rocketmq.common.TopicConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * broker实例内部订阅组信息
+ */
 public class TopicConfigSerializeWrapper extends RemotingSerializable {
+    /**
+     * Topic以及对应 TopicConfig(配置)
+     */
     private ConcurrentMap<String, TopicConfig> topicConfigTable =
-        new ConcurrentHashMap<String, TopicConfig>();
+            new ConcurrentHashMap<String, TopicConfig>();
+
+    /**
+     * 数据版本
+     */
     private DataVersion dataVersion = new DataVersion();
 
     public ConcurrentMap<String, TopicConfig> getTopicConfigTable() {

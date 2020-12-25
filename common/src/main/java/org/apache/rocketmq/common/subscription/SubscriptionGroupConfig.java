@@ -19,23 +19,51 @@ package org.apache.rocketmq.common.subscription;
 
 import org.apache.rocketmq.common.MixAll;
 
+/**
+ * 消费分组配置
+ */
 public class SubscriptionGroupConfig {
 
+    /**
+     * 消费分组名称
+     */
     private String groupName;
 
+    /**
+     * 是否开启消息
+     */
     private boolean consumeEnable = true;
+
+    /**
+     *
+     */
     private boolean consumeFromMinEnable = true;
 
+    /**
+     * 是否开启广播模式
+     */
     private boolean consumeBroadcastEnable = true;
 
+    /**
+     * 消费失败重试Topic内部消费队列数量
+     */
     private int retryQueueNums = 1;
 
+    /**
+     * 消费失败重复最大次数
+     */
     private int retryMaxTimes = 16;
 
+    /**
+     * 是否只master broker消费
+     */
     private long brokerId = MixAll.MASTER_ID;
 
     private long whichBrokerWhenConsumeSlowly = 1;
 
+    /**
+     * 通知消费ID变更
+     */
     private boolean notifyConsumerIdsChangedEnable = true;
 
     public String getGroupName() {

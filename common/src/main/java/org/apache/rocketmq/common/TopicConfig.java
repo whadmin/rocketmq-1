@@ -18,16 +18,48 @@ package org.apache.rocketmq.common;
 
 import org.apache.rocketmq.common.constant.PermName;
 
+/**
+ * Topic配置
+ */
 public class TopicConfig {
     private static final String SEPARATOR = " ";
     public static int defaultReadQueueNums = 16;
     public static int defaultWriteQueueNums = 16;
+
+
+    /**
+     * 名称
+     */
     private String topicName;
+
+    /**
+     * 读取队列数量
+     */
     private int readQueueNums = defaultReadQueueNums;
+
+    /**
+     * 写入队列数据
+     */
     private int writeQueueNums = defaultWriteQueueNums;
+
+    /**
+     * 权限
+     */
     private int perm = PermName.PERM_READ | PermName.PERM_WRITE;
+
+    /**
+     * 过滤类型
+     */
     private TopicFilterType topicFilterType = TopicFilterType.SINGLE_TAG;
+
+    /**
+     * 是否是系统topic标识
+     */
     private int topicSysFlag = 0;
+
+    /**
+     * 是否顺序（不确定）
+     */
     private boolean order = false;
 
     public TopicConfig() {
@@ -174,8 +206,8 @@ public class TopicConfig {
     @Override
     public String toString() {
         return "TopicConfig [topicName=" + topicName + ", readQueueNums=" + readQueueNums
-            + ", writeQueueNums=" + writeQueueNums + ", perm=" + PermName.perm2String(perm)
-            + ", topicFilterType=" + topicFilterType + ", topicSysFlag=" + topicSysFlag + ", order="
-            + order + "]";
+                + ", writeQueueNums=" + writeQueueNums + ", perm=" + PermName.perm2String(perm)
+                + ", topicFilterType=" + topicFilterType + ", topicSysFlag=" + topicSysFlag + ", order="
+                + order + "]";
     }
 }

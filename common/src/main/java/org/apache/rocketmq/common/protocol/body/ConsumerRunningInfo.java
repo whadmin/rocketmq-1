@@ -27,6 +27,9 @@ import org.apache.rocketmq.common.protocol.heartbeat.ConsumeType;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * ConsumeStats（消费分组状态信息）
+ */
 public class ConsumerRunningInfo extends RemotingSerializable {
     public static final String PROP_NAMESERVER_ADDR = "PROP_NAMESERVER_ADDR";
     public static final String PROP_THREADPOOL_CORE_SIZE = "PROP_THREADPOOL_CORE_SIZE";
@@ -37,12 +40,24 @@ public class ConsumerRunningInfo extends RemotingSerializable {
 
     private Properties properties = new Properties();
 
+    /**
+     * Topic订阅配置信息列表
+     */
     private TreeSet<SubscriptionData> subscriptionSet = new TreeSet<SubscriptionData>();
 
+    /**
+     * 当前消费实例分配的MessageQueue(消息)以及ProcessQueueInfo（处理消费队列信息）
+     */
     private TreeMap<MessageQueue, ProcessQueueInfo> mqTable = new TreeMap<MessageQueue, ProcessQueueInfo>();
 
+    /**
+     * 当前消费实例不同topic以及ConsumeStatus(消费实例消费状态（各种RT,TPS统计))
+     */
     private TreeMap<String/* Topic */, ConsumeStatus> statusTable = new TreeMap<String, ConsumeStatus>();
 
+    /**
+     * 堆栈
+     */
     private String jstack;
 
     public static boolean analyzeSubscription(final TreeMap<String/* clientId */, ConsumerRunningInfo> criTable) {

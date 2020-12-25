@@ -17,9 +17,17 @@
 package org.apache.rocketmq.common.protocol.body;
 
 import java.util.HashSet;
+
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * 获取指定Topic当前集群在线的订阅分组集合（还在线通信的）
+ */
 public class GroupList extends RemotingSerializable {
+
+    /**
+     * 订阅分组集合
+     */
     private HashSet<String> groupList = new HashSet<String>();
 
     public HashSet<String> getGroupList() {

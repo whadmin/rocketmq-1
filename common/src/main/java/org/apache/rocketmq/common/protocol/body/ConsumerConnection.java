@@ -20,18 +20,41 @@ package org.apache.rocketmq.common.protocol.body;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
 import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.common.protocol.heartbeat.ConsumeType;
 import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * Consumer消费组连接信息
+ */
 public class ConsumerConnection extends RemotingSerializable {
+
+    /**
+     * 终端连接信息（id,地址，语言，版本）
+     */
     private HashSet<Connection> connectionSet = new HashSet<Connection>();
+
+    /**
+     * 消费Topci以及Topic对应的订阅配置信息
+     */
     private ConcurrentMap<String/* Topic */, SubscriptionData> subscriptionTable =
-        new ConcurrentHashMap<String, SubscriptionData>();
+            new ConcurrentHashMap<String, SubscriptionData>();
+    /**
+     * 客户端类型（推，拉）
+     */
     private ConsumeType consumeType;
+
+    /**
+     * 消费模型（广播，集群）
+     */
     private MessageModel messageModel;
+
+    /**
+     * 消费策略
+     */
     private ConsumeFromWhere consumeFromWhere;
 
     public int computeMinVersion() {

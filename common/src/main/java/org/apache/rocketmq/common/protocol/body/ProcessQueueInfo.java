@@ -19,24 +19,79 @@ package org.apache.rocketmq.common.protocol.body;
 
 import org.apache.rocketmq.common.UtilAll;
 
+/**
+ * ProcessQueueInfo（处理消费队列信息）
+ */
 public class ProcessQueueInfo {
+
+    /**
+     * 提交逻辑偏移量
+     */
     private long commitOffset;
 
+    /**
+     * 缓存消息最小逻辑偏移量
+     */
     private long cachedMsgMinOffset;
+
+    /**
+     * 缓存消息最大逻辑偏移量
+     */
     private long cachedMsgMaxOffset;
+
+    /**
+     * 缓存消息数量
+     */
     private int cachedMsgCount;
+
+    /**
+     * 缓存消息大小
+     */
     private int cachedMsgSizeInMiB;
 
+    /**
+     * 事务消息最小逻辑偏移量
+     */
     private long transactionMsgMinOffset;
+
+    /**
+     * 事务消息最大逻辑偏移量
+     */
     private long transactionMsgMaxOffset;
+
+    /**
+     * 事务消息数量
+     */
     private int transactionMsgCount;
 
+    /**
+     * 是否锁定
+     */
     private boolean locked;
+
+    /**
+     * 最后尝试加锁时间
+     */
     private long tryUnlockTimes;
+
+    /**
+     * 最后加载时间
+     */
     private long lastLockTimestamp;
 
+    /**
+     * 是否关闭
+     */
     private boolean droped;
+
+    /**
+     * 最后拉去时间
+     */
     private long lastPullTimestamp;
+
+    /**
+     * 最后消费时间
+     */
     private long lastConsumeTimestamp;
 
     public long getCommitOffset() {
@@ -154,13 +209,13 @@ public class ProcessQueueInfo {
     @Override
     public String toString() {
         return "ProcessQueueInfo [commitOffset=" + commitOffset + ", cachedMsgMinOffset="
-            + cachedMsgMinOffset + ", cachedMsgMaxOffset=" + cachedMsgMaxOffset
-            + ", cachedMsgCount=" + cachedMsgCount + ", cachedMsgSizeInMiB=" + cachedMsgSizeInMiB
-            + ", transactionMsgMinOffset=" + transactionMsgMinOffset
-            + ", transactionMsgMaxOffset=" + transactionMsgMaxOffset + ", transactionMsgCount="
-            + transactionMsgCount + ", locked=" + locked + ", tryUnlockTimes=" + tryUnlockTimes
-            + ", lastLockTimestamp=" + UtilAll.timeMillisToHumanString(lastLockTimestamp) + ", droped="
-            + droped + ", lastPullTimestamp=" + UtilAll.timeMillisToHumanString(lastPullTimestamp)
-            + ", lastConsumeTimestamp=" + UtilAll.timeMillisToHumanString(lastConsumeTimestamp) + "]";
+                + cachedMsgMinOffset + ", cachedMsgMaxOffset=" + cachedMsgMaxOffset
+                + ", cachedMsgCount=" + cachedMsgCount + ", cachedMsgSizeInMiB=" + cachedMsgSizeInMiB
+                + ", transactionMsgMinOffset=" + transactionMsgMinOffset
+                + ", transactionMsgMaxOffset=" + transactionMsgMaxOffset + ", transactionMsgCount="
+                + transactionMsgCount + ", locked=" + locked + ", tryUnlockTimes=" + tryUnlockTimes
+                + ", lastLockTimestamp=" + UtilAll.timeMillisToHumanString(lastLockTimestamp) + ", droped="
+                + droped + ", lastPullTimestamp=" + UtilAll.timeMillisToHumanString(lastPullTimestamp)
+                + ", lastConsumeTimestamp=" + UtilAll.timeMillisToHumanString(lastConsumeTimestamp) + "]";
     }
 }

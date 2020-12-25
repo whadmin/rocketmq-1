@@ -17,13 +17,33 @@
 
 package org.apache.rocketmq.common.protocol.body;
 
+/**
+ * ConsumeStatus 表示指定消费实例消费状态（各种RT,TPS统计）
+ */
 public class ConsumeStatus {
+    /**
+     * 拉去RT（响应时间）
+     */
     private double pullRT;
+    /**
+     * 拉取TPS（每秒钟request/事务 数量）
+     */
     private double pullTPS;
+    /**
+     * 消费RT（响应时间）
+     */
     private double consumeRT;
+    /**
+     * 消费成功TPS（每秒钟request/事务 数量）
+     */
     private double consumeOKTPS;
+    /**
+     * 消费失败TPS（每秒钟request/事务 数量）
+     */
     private double consumeFailedTPS;
-
+    /**
+     * 消费失败消息数量
+     */
     private long consumeFailedMsgs;
 
     public double getPullRT() {

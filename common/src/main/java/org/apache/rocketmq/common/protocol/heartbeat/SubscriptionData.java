@@ -26,14 +26,46 @@ import org.apache.rocketmq.common.filter.ExpressionType;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * 订阅配置信息
+ */
 public class SubscriptionData implements Comparable<SubscriptionData> {
+
     public final static String SUB_ALL = "*";
+
+    /**
+     * 不知道干吗
+     */
     private boolean classFilterMode = false;
+
+    /**
+     * topic名称
+     */
     private String topic;
+
+    /**
+     * 过滤表达式
+     */
     private String subString;
+
+    /**
+     * tag集合（不知道干吗）
+     */
     private Set<String> tagsSet = new HashSet<String>();
+
+    /**
+     * code集合（不知道干吗）
+     */
     private Set<Integer> codeSet = new HashSet<Integer>();
+
+    /**
+     * 子版本
+     */
     private long subVersion = System.currentTimeMillis();
+
+    /**
+     * 消息过滤的方式
+     */
     private String expressionType = ExpressionType.TAG;
 
     @JSONField(serialize = false)
@@ -170,8 +202,8 @@ public class SubscriptionData implements Comparable<SubscriptionData> {
     @Override
     public String toString() {
         return "SubscriptionData [classFilterMode=" + classFilterMode + ", topic=" + topic + ", subString="
-            + subString + ", tagsSet=" + tagsSet + ", codeSet=" + codeSet + ", subVersion=" + subVersion
-            + ", expressionType=" + expressionType + "]";
+                + subString + ", tagsSet=" + tagsSet + ", codeSet=" + codeSet + ", subVersion=" + subVersion
+                + ", expressionType=" + expressionType + "]";
     }
 
     @Override

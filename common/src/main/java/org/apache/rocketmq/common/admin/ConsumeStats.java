@@ -22,10 +22,25 @@ import java.util.Map.Entry;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * ConsumeStats（消费分组状态信息）
+ *
+ */
 public class ConsumeStats extends RemotingSerializable {
+
+    /**
+     * MessageQueue(消息队列)以及对应的OffsetWrapper(消费进度)
+     */
     private HashMap<MessageQueue, OffsetWrapper> offsetTable = new HashMap<MessageQueue, OffsetWrapper>();
+
+    /**
+     * 消费分组Tps（每秒钟request/事务 数量）
+     */
     private double consumeTps = 0;
 
+    /**
+     * 计算当前所有消息队列未消息进度（消息堆积情况）
+     */
     public long computeTotalDiff() {
         long diffTotal = 0L;
 
