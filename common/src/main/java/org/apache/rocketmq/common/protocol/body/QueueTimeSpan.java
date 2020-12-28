@@ -18,14 +18,38 @@
 package org.apache.rocketmq.common.protocol.body;
 
 import java.util.Date;
+
 import org.apache.rocketmq.common.UtilAll;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 队列时间跨度信息
+ */
 public class QueueTimeSpan {
+
+    /**
+     * 消息队列信息
+     */
     private MessageQueue messageQueue;
+
+    /**
+     * 偏移量最小消息产生时间
+     */
     private long minTimeStamp;
+
+    /**
+     * 偏移量最大消息产生时间
+     */
     private long maxTimeStamp;
+
+    /**
+     * 当前消费分组消费消息产生时间
+     */
     private long consumeTimeStamp;
+
+    /**
+     * maxTimeStamp-consumeTimeStamp 延时时间
+     */
     private long delayTime;
 
     public MessageQueue getMessageQueue() {

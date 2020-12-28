@@ -35,7 +35,7 @@ public class SubscriptionGroupConfig {
     private boolean consumeEnable = true;
 
     /**
-     *
+     * 是否开启从最小逻辑偏移量开始消费
      */
     private boolean consumeFromMinEnable = true;
 
@@ -55,10 +55,13 @@ public class SubscriptionGroupConfig {
     private int retryMaxTimes = 16;
 
     /**
-     * 是否只master broker消费
+     * 消费broker类型
      */
     private long brokerId = MixAll.MASTER_ID;
 
+    /**
+     * 消费默认是从master节点pull数据，如果消费慢，允许从slave节点pull数据
+     */
     private long whichBrokerWhenConsumeSlowly = 1;
 
     /**
@@ -151,7 +154,7 @@ public class SubscriptionGroupConfig {
         result = prime * result + retryMaxTimes;
         result = prime * result + retryQueueNums;
         result =
-            prime * result + (int) (whichBrokerWhenConsumeSlowly ^ (whichBrokerWhenConsumeSlowly >>> 32));
+                prime * result + (int) (whichBrokerWhenConsumeSlowly ^ (whichBrokerWhenConsumeSlowly >>> 32));
         return result;
     }
 
@@ -191,10 +194,10 @@ public class SubscriptionGroupConfig {
     @Override
     public String toString() {
         return "SubscriptionGroupConfig [groupName=" + groupName + ", consumeEnable=" + consumeEnable
-            + ", consumeFromMinEnable=" + consumeFromMinEnable + ", consumeBroadcastEnable="
-            + consumeBroadcastEnable + ", retryQueueNums=" + retryQueueNums + ", retryMaxTimes="
-            + retryMaxTimes + ", brokerId=" + brokerId + ", whichBrokerWhenConsumeSlowly="
-            + whichBrokerWhenConsumeSlowly + ", notifyConsumerIdsChangedEnable="
-            + notifyConsumerIdsChangedEnable + "]";
+                + ", consumeFromMinEnable=" + consumeFromMinEnable + ", consumeBroadcastEnable="
+                + consumeBroadcastEnable + ", retryQueueNums=" + retryQueueNums + ", retryMaxTimes="
+                + retryMaxTimes + ", brokerId=" + brokerId + ", whichBrokerWhenConsumeSlowly="
+                + whichBrokerWhenConsumeSlowly + ", notifyConsumerIdsChangedEnable="
+                + notifyConsumerIdsChangedEnable + "]";
     }
 }

@@ -79,7 +79,7 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException, MQClientException;
 
     /**
-     * 查询指定broker节点指定topic的topic配置
+     * 查询指定broker节点指定topic的topic的配置
      *
      * @param addr  broker节点某个实例地址
      * @param topic topic名称
@@ -91,7 +91,7 @@ public interface MQAdminExt extends MQAdmin {
     /**
      * 删除多个broker节点上的topic的topic配置
      *
-     * @param addrs 多个broker节点master实例地址
+     * @param addrs 多个broker节点master broker实例地址
      * @param topic topic名称
      * @throws RemotingException
      * @throws MQBrokerException
@@ -103,7 +103,7 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 删除多个nameserver topic
+     * 删除多个nameserver topic(核心是用来删除路由信息)
      *
      * @param addrs 多个nameserver地址
      * @param topic topic名称
@@ -135,7 +135,7 @@ public interface MQAdminExt extends MQAdmin {
      * 获取指定Topic对应 TopicStatsTable 状态表格
      * TopicStatsTable包括:
      * 1 存储该Topic每个MessageQueue信息，
-     * 2 以及每个MessageQueue对应的 TopicOffset(消息移量数据，包括存储逻辑最大最小偏移量）
+     * 2 以及每个MessageQueue对应的 TopicOffset(消息移量数据，包括存储逻辑最大最小偏移量，最后更新时间戳）
      *
      * @param topic 消息Topic
      * @return
@@ -218,8 +218,8 @@ public interface MQAdminExt extends MQAdmin {
      * ProducerConnection包括:
      * 终端连接信息列表，其中连接信息包括（id,地址，语言，版本）
      *
-     * @param producerGroup
-     * @param topic
+     * @param producerGroup 生产分组
+     * @param topic         topic名称
      * @return
      * @throws RemotingException
      * @throws MQClientException
@@ -267,6 +267,31 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
+     * 查询指定指定消费分组对应ConsumerConnection(消费组连接信息)
+     * ConsumerConnection包括:
+     * <p>
+     * 1 终端连接信息（id,地址，语言，版本）
+     * 2 消费topic以及topic对应的订阅配置信息
+     * 3 客户端类型（推，拉）
+     * 4 消费模型（广播，集群）
+     * 5 消费策略
+     *
+     * @param consumerGroup 订阅组
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     * @throws RemotingException
+     * @throws MQClientException
+     */
+    ConsumerConnection examineConsumerConnectionInfo(final String consumerGroup) throws RemotingConnectException,
+            RemotingSendRequestException, RemotingTimeoutException, InterruptedException, MQBrokerException, RemotingException,
+            MQClientException;
+
+
+    /**
      * 查询指定消费分组对应ConsumeStats（消费分组状态信息）
      * ConsumeStats包括:
      * 1 每个消费分组订阅MessageQueue(消息队列)信息
@@ -309,57 +334,30 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException, MQBrokerException;
 
 
-    List<QueueTimeSpan> queryConsumeTimeSpan(final String topic,
-                                             final String group) throws InterruptedException, MQBrokerException,
-            RemotingException, MQClientException;
-
     /**
-     * 查询指定指定消费分组对应ConsumerConnection(消费组连接信息)
-     * ConsumerConnection包括:
-     * <p>
-     * 1 终端连接信息（id,地址，语言，版本）
-     * 2 消费topic以及topic对应的订阅配置信息
-     * 3 客户端类型（推，拉）
-     * 4 消费模型（广播，集群）
-     * 5 消费策略
+     * 查询指定topic指定消费分组对应  QueueTimeSpan列表（QueueTimeSpan信息）
+     * QueueTimeSpan 包括：
+     * 消息队列信息
+     * minTimeStamp 偏移量最小消息产生时间
+     * maxTimeStamp 偏移量最大消息产生时间
+     * consumeTimeStamp 当前消费分组消费消息产生时间
+     * maxTimeStamp-consumeTimeStamp 延时时间
      *
-     * @param consumerGroup 订阅组
+     * @param topic
+     * @param group
      * @return
-     * @throws RemotingConnectException
-     * @throws RemotingSendRequestException
-     * @throws RemotingTimeoutException
      * @throws InterruptedException
      * @throws MQBrokerException
      * @throws RemotingException
      * @throws MQClientException
      */
-    ConsumerConnection examineConsumerConnectionInfo(final String consumerGroup) throws RemotingConnectException,
-            RemotingSendRequestException, RemotingTimeoutException, InterruptedException, MQBrokerException, RemotingException,
-            MQClientException;
+    List<QueueTimeSpan> queryConsumeTimeSpan(final String topic,
+                                             final String group) throws InterruptedException, MQBrokerException,
+            RemotingException, MQClientException;
 
 
     /**
-     * 查询指定指定消费分组指定客户端Id对应ConsumerRunningInfo(消费实例信息)
-     * ConsumerRunningInfo包括:
-     * <p>
-     * 1 该消费实例上所有配置Topic订阅配置信息
-     * 2 当前消费实例分配的MessageQueue(消息)以及ProcessQueueInfo（处理消费队列信息）
-     * 3 当前消费实例不同topic以及ConsumeStatus(消费实例消费状态（各种RT,TPS统计))
-     *
-     * @param consumerGroup
-     * @param clientId
-     * @param jstack
-     * @return
-     * @throws RemotingException
-     * @throws MQClientException
-     * @throws InterruptedException
-     */
-    ConsumerRunningInfo getConsumerRunningInfo(final String consumerGroup, final String clientId, final boolean jstack)
-            throws RemotingException, MQClientException, InterruptedException;
-
-
-    /**
-     * 重置指定消费分组指定topic消费进度（按照时间）（老版本）
+     * 重置指定消费分组指定topic消费进度（按照时间戳）（老版本）
      * <p>
      * 1 查询当前消费分组对应Topic关联所有消息队列
      * 2 重新指定时间戳对应最大逻辑偏移量
@@ -379,7 +377,7 @@ public interface MQAdminExt extends MQAdmin {
             throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
 
     /**
-     * 重置指定消费分组指定topic消费进度（按照时间）（新版本）
+     * 重置指定消费分组指定topic消费进度（按照时间戳）（新版本）
      * <p>
      * 1 查询当前消费分组对应Topic关联所有消息队列
      * 2 重新指定时间戳对应最大逻辑偏移量
@@ -413,11 +411,61 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException, MQClientException;
 
 
+    /**
+     * 查询指定指定消费分组指定客户端地址指定topic消费信息
+     * <p>
+     * Map<String, Map<MessageQueue, Long>>
+     * <p>
+     * String 客户端地址
+     * MessageQueue 消息队列
+     * Long 消费逻辑偏移量
+     *
+     * @param topic      topic名称
+     * @param group      消费分组
+     * @param clientAddr 消费实例客户端地址
+     * @return
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
     Map<String, Map<MessageQueue, Long>> getConsumeStatus(String topic, String group,
                                                           String clientAddr) throws RemotingException,
             MQBrokerException, InterruptedException, MQClientException;
 
 
+    /**
+     * 查询指定指定消费分组指定客户端Id对应ConsumerRunningInfo(消费实例信息)
+     * ConsumerRunningInfo包括:
+     * <p>
+     * 1 该消费实例上所有配置Topic订阅配置信息
+     * 2 当前消费实例分配的MessageQueue(消息)以及ProcessQueueInfo（处理消费队列信息）
+     * 3 当前消费实例不同topic以及ConsumeStatus(消费实例消费状态（各种RT,TPS统计))
+     *
+     * @param consumerGroup
+     * @param clientId
+     * @param jstack
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    ConsumerRunningInfo getConsumerRunningInfo(final String consumerGroup, final String clientId, final boolean jstack)
+            throws RemotingException, MQClientException, InterruptedException;
+
+
+    /**
+     * 克隆指定topic,指定消费分组的消费进度到指定消费分组
+     *
+     * @param srcGroup  原消费分组
+     * @param destGroup 目标消费分组
+     * @param topic     消息目标
+     * @param isOffline 是否在线
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
     void cloneGroupOffset(String srcGroup, String destGroup, String topic, boolean isOffline) throws RemotingException,
             MQClientException, InterruptedException, MQBrokerException;
 
@@ -479,7 +527,7 @@ public interface MQAdminExt extends MQAdmin {
             RemotingTimeoutException, MQClientException, InterruptedException;
 
 
-    /************************************** broker相关,以及从从broker数据（topic,topic配置，消费分组，消费分组配置，消息队列） **************************************/
+    /************************************** broker相关 **************************************/
 
     /**
      * 查询指定broker所有消费分组的配置（并安装topic分组）
