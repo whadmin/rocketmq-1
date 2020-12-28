@@ -36,12 +36,12 @@ public class TopicRouteData extends RemotingSerializable {
     private String orderTopicConf;
 
     /**
-     * 存储Topic消息队列信息（包括分配规则和数据同步方式）列表
+     * topic在不同broker节点配置信息（读队列数量，写队列数量，权限..）
      */
     private List<QueueData> queueDatas;
 
     /**
-     * 存储TopicBroker节点列表
+     * 存储topic消息每个broker节点数据（所有broker实例类型和地址..）
      */
     private List<BrokerData> brokerDatas;
 

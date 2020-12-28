@@ -21,19 +21,71 @@
 package org.apache.rocketmq.common.namesrv;
 
 import java.io.File;
+
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 public class NamesrvConfig {
+
+    /**
+     * 日志
+     */
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
 
+    /**
+     * RocketMQ安装目录
+     * 如果没有指定的话，默认值为系统环境变量ROCKETMQ_HOME
+     * 通过System.getenv获取，可以在~/.profile中export
+     * 或者可以在配置文件中指定rocketmqHome=***
+     */
     private String rocketmqHome = System.getProperty(MixAll.ROCKETMQ_HOME_PROPERTY, System.getenv(MixAll.ROCKETMQ_HOME_ENV));
+
+    /**
+     * KV配置持久化地址
+     * 默认为System.getProperty("user.home")/namesrv/kvConfig.json文件
+     */
     private String kvConfigPath = System.getProperty("user.home") + File.separator + "namesrv" + File.separator + "kvConfig.json";
+
+    /**
+     * 持久化配置路径
+     * 默认为System.getProperty("user.home")/namesrv/namesrv.properties文件
+     */
     private String configStorePath = System.getProperty("user.home") + File.separator + "namesrv" + File.separator + "namesrv.properties";
+
+
     private String productEnvName = "center";
+
+
     private boolean clusterTest = false;
+
+
+    /**
+     * 是否开启orderMessage 表示是保障消息的严格的一致性
+     * <p>
+     * producer向broker发送消息前会通过namesrv获取topic路由信息【说白了就是每个brokerName中 master提供了多少个MessageQueue用来写入message】，在
+     * <p>
+     * 所有的broker中选择一个MessageQueue 如 brokerName1:1;brokerName2:1;brokerName3:1; 这时候如果发送消息
+     * <p>
+     * 消息ID：100 -->   brokerName1[中的一个MessageQueue[0]]
+     * <p>
+     * 消息ID：101 -->   brokerName2[中的一个MessageQueue[0]]
+     * <p>
+     * 消息ID：102 -->   brokerName3[中的一个MessageQueue[0]]
+     * <p>
+     * 如果此时brokerName3 下线
+     * <p>
+     * 消息ID：102 按照路由规则转移到其他机器  brokerName1[中的一个MessageQueue[0]] 导致消息不一致
+     * <p>
+     * 如果开启orderMessage 在发送消息时会读取读取的路由信息优先从namesrv.KvConfigManager获取这里配置不会伴随brokerName改变保证消息顺序
+     * <p>
+     * String orderTopicConf =
+     * this.namesrvController.getKvConfigManager().getKVConfig(NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFIG,
+     * requestHeader.getTopic())
+     *
+     * @return
+     */
     private boolean orderMessageEnable = false;
 
     public boolean isOrderMessageEnable() {

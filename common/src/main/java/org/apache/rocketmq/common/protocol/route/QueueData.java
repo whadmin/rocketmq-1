@@ -21,7 +21,7 @@
 package org.apache.rocketmq.common.protocol.route;
 
 /**
- * 消息队列信息（包括分配规则和数据同步方式）
+ *  topic 在指定broker节点配置信息
  */
 public class QueueData implements Comparable<QueueData> {
 

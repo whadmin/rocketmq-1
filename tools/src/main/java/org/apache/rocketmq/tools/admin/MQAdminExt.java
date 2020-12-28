@@ -62,32 +62,80 @@ public interface MQAdminExt extends MQAdmin {
 
     void shutdown();
 
+    /************************************** Topic 维度相关接口 **************************************/
 
+    /**
+     * 向指定broker节点创建/更新一个topic以及topic配置
+     *
+     * @param addr   broker节点某个实例地址
+     * @param config topic配置
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
     void createAndUpdateTopicConfig(final String addr,
                                     final TopicConfig config) throws RemotingException, MQBrokerException,
             InterruptedException, MQClientException;
 
-    void createAndUpdatePlainAccessConfig(final String addr, final PlainAccessConfig plainAccessConfig) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    void deletePlainAccessConfig(final String addr, final String accessKey) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    void updateGlobalWhiteAddrConfig(final String addr, final String globalWhiteAddrs) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    ClusterAclVersionInfo examineBrokerClusterAclVersionInfo(final String addr) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    AclConfig examineBrokerClusterAclConfig(final String addr) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-
+    /**
+     * 查询指定broker节点指定topic的topic配置
+     *
+     * @param addr  broker节点某个实例地址
+     * @param topic topic名称
+     * @return
+     */
     TopicConfig examineTopicConfig(final String addr, final String topic);
 
+
     /**
-     * 获取指定Topic对应的 获取TopicStatsTable状态信息
-     * TopicStatsTable内部包括该Topic每个MessageQueue信息，以及每个MessageQueue逻辑偏移信息
+     * 删除多个broker节点上的topic的topic配置
+     *
+     * @param addrs 多个broker节点master实例地址
+     * @param topic topic名称
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void deleteTopicInBroker(final Set<String> addrs, final String topic) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+
+    /**
+     * 删除多个nameserver topic
+     *
+     * @param addrs 多个nameserver地址
+     * @param topic topic名称
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void deleteTopicInNameServer(final Set<String> addrs,
+                                 final String topic) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+    /**
+     * 查询所有topic
+     * <p>
+     * 1 根据当前namsserver，获取当前注册到nameserver所有集群
+     * 2 获取所有集群所有broker节点
+     * 3 获取所有broker节点配置的topic
+     *
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    TopicList fetchAllTopicList() throws RemotingException, MQClientException, InterruptedException;
+
+
+    /**
+     * 获取指定Topic对应 TopicStatsTable 状态表格
+     * TopicStatsTable包括:
+     * 1 存储该Topic每个MessageQueue信息，
+     * 2 以及每个MessageQueue对应的 TopicOffset(消息移量数据，包括存储逻辑最大最小偏移量）
      *
      * @param topic 消息Topic
      * @return
@@ -101,8 +149,10 @@ public interface MQAdminExt extends MQAdmin {
             MQBrokerException;
 
     /**
-     * 获取指定Topic对应的 TopicRouteData 主题路由信息
-     * TopicRouteData内部包括Topic消息队列信息（包括分配规则和数据同步方式）列表，TopicBroker节点列表
+     * 从nameserver获取指定Topic对应的 TopicRouteData 主题路由信息
+     * TopicRouteData包括:
+     * 1 topic在不同broker节点配置信息（读队列数量，写队列数量，权限..）
+     * 2 存储topic消息每个broker节点数据（包括每个broker节点内所有broker实例类型和地址..）
      *
      * @param topic 消息Topic
      * @return
@@ -112,7 +162,6 @@ public interface MQAdminExt extends MQAdmin {
      */
     TopicRouteData examineTopicRouteInfo(
             final String topic) throws RemotingException, MQClientException, InterruptedException;
-
 
     /**
      * 获取指定Topic当前集群在线的订阅消费分组
@@ -131,11 +180,43 @@ public interface MQAdminExt extends MQAdmin {
             RemotingTimeoutException, InterruptedException, MQBrokerException, RemotingException, MQClientException;
 
 
+    /**
+     * 查询当前topic关联所有集群（空实现）
+     *
+     * @param topic topic名称
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    Set<String> getClusterList(final String topic) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
+     * 查询当前topic关联所有集群
+     *
+     * @param topic topic名称
+     * @return
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     * @throws MQClientException
+     * @throws RemotingException
+     */
+    Set<String> getTopicClusterList(
+            final String topic) throws InterruptedException, MQBrokerException, MQClientException, RemotingException;
+
+
     /************************************** 生产组相关接口 **************************************/
 
 
     /**
-     * 查询指定指定producerGroup（生产分组） ProducerConnection(生产分组连接信息)
+     * 查询指定指定producerGroup（生产分组）对应 ProducerConnection(生产分组连接信息)
+     * <p>
+     * ProducerConnection包括:
+     * 终端连接信息列表，其中连接信息包括（id,地址，语言，版本）
      *
      * @param producerGroup
      * @param topic
@@ -150,12 +231,48 @@ public interface MQAdminExt extends MQAdmin {
             MQClientException, InterruptedException, MQBrokerException;
 
 
-    /************************************** 消费组相关接口 **************************************/
+    /************************************** 消费分组相关接口 **************************************/
+
 
     /**
-     * 查询指定groupName（消费分组）  ConsumeStats（消费分组状态信息）
-     * 包括:
-     * 所有MessageQueue(消息队列)以及对应的OffsetWrapper(消费进度)
+     * 向指定broker节点创建/更新 一个消费分组以及消费分组配置
+     * <p>
+     * 如果broker配置 autoCreateSubscriptionGroup=false,需要先手动创建否则客户端不无法接收消息
+     *
+     * @param addr   broker节点某个实例地址
+     * @param config 消费分组配置
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void createAndUpdateSubscriptionGroupConfig(final String addr,
+                                                final SubscriptionGroupConfig config) throws RemotingException,
+            MQBrokerException, InterruptedException, MQClientException;
+
+    /**
+     * 向指定broker节点删除指定消费分组以及消费分组配置
+     * <p>
+     * 如果broker配置 autoCreateSubscriptionGroup=false,需要先手动创建否则客户端不无法接收消息
+     *
+     * @param addr      broker节点某个实例地址
+     * @param groupName 消费分组
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void deleteSubscriptionGroup(final String addr, String groupName) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+
+    /**
+     * 查询指定消费分组对应ConsumeStats（消费分组状态信息）
+     * ConsumeStats包括:
+     * 1 每个消费分组订阅MessageQueue(消息队列)信息
+     * 2 订阅MessageQueue(消息队列)对应的OffsetWrapper(消费进度)
+     * 3 消费分组Tps
+     * 4 消费分组消息堆积
      * <p>
      * 这里需要注意由于没有指定topic，当groupName（消费分组）订阅了多个Topic时会返回多个Topic内部的
      * MessageQueue(消息队列)以及对应的OffsetWrapper(消费进度)
@@ -172,9 +289,12 @@ public interface MQAdminExt extends MQAdmin {
             MQBrokerException;
 
     /**
-     * 查询指定topic指定groupName（消费分组）  ConsumeStats（消费分组状态信息）
-     * 包括:
-     * 所有MessageQueue(消息队列)以及对应的OffsetWrapper(消费进度)
+     * 查询指定topic指定消费分组对应ConsumeStats（消费分组状态信息）
+     * ConsumeStats包括:
+     * 1 每个消费分组订阅MessageQueue(消息队列)信息
+     * 2 订阅MessageQueue(消息队列)对应的OffsetWrapper(消费进度)
+     * 3 消费分组Tps
+     * 4 消费分组消息堆积
      *
      * @param consumerGroup
      * @param topic
@@ -189,9 +309,13 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException, MQBrokerException;
 
 
+    List<QueueTimeSpan> queryConsumeTimeSpan(final String topic,
+                                             final String group) throws InterruptedException, MQBrokerException,
+            RemotingException, MQClientException;
+
     /**
-     * 查询指定指定groupName（消费分组） ConsumerConnection(消费组连接信息)
-     * 包括:
+     * 查询指定指定消费分组对应ConsumerConnection(消费组连接信息)
+     * ConsumerConnection包括:
      * <p>
      * 1 终端连接信息（id,地址，语言，版本）
      * 2 消费topic以及topic对应的订阅配置信息
@@ -215,10 +339,10 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 查询指定指定groupName（消费分组），指定客户端Id ConsumerRunningInfo(消费实例信息)
-     * 包括:
+     * 查询指定指定消费分组指定客户端Id对应ConsumerRunningInfo(消费实例信息)
+     * ConsumerRunningInfo包括:
      * <p>
-     * 1 Topic订阅配置信息列表
+     * 1 该消费实例上所有配置Topic订阅配置信息
      * 2 当前消费实例分配的MessageQueue(消息)以及ProcessQueueInfo（处理消费队列信息）
      * 3 当前消费实例不同topic以及ConsumeStatus(消费实例消费状态（各种RT,TPS统计))
      *
@@ -235,23 +359,73 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 选择broker节点一个实例（终端），删除指定消费分组
+     * 重置指定消费分组指定topic消费进度（按照时间）（老版本）
+     * <p>
+     * 1 查询当前消费分组对应Topic关联所有消息队列
+     * 2 重新指定时间戳对应最大逻辑偏移量
+     * 3 重置所有消费队列偏移量未2中计算的值
      *
-     * @param addr      消费实例（终端）
-     * @param groupName 消费分组
+     * @param consumerGroup 消费分组
+     * @param topic         topic名称
+     * @param timestamp     指定时间戳
+     * @param force         如果查询指定时间戳在消费队列逻辑偏移量<当前消费逻辑偏移量做当前队列不重置进度
+     * @return
      * @throws RemotingException
      * @throws MQBrokerException
      * @throws InterruptedException
      * @throws MQClientException
      */
-    void deleteSubscriptionGroup(final String addr, String groupName) throws RemotingException, MQBrokerException,
+    List<RollbackStats> resetOffsetByTimestampOld(String consumerGroup, String topic, long timestamp, boolean force)
+            throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
+
+    /**
+     * 重置指定消费分组指定topic消费进度（按照时间）（新版本）
+     * <p>
+     * 1 查询当前消费分组对应Topic关联所有消息队列
+     * 2 重新指定时间戳对应最大逻辑偏移量
+     * 3 重置所有消费队列偏移量未2中计算的值
+     *
+     * @param topic     topic名称
+     * @param group     消费分组
+     * @param timestamp 指定时间戳
+     * @param isForce   如果查询指定时间戳在消费队列逻辑偏移量<当前消费逻辑偏移量做当前队列不重置进度
+     * @return
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    Map<MessageQueue, Long> resetOffsetByTimestamp(String topic, String group, long timestamp, boolean isForce)
+            throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
+
+    /**
+     * 内部实现调用resetOffsetByTimestamp一样，isForce为true
+     *
+     * @param topic         topic名称
+     * @param consumerGroup 消费分组
+     * @param timestamp     指定时间戳
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void resetOffsetNew(String consumerGroup, String topic, long timestamp) throws RemotingException, MQBrokerException,
             InterruptedException, MQClientException;
+
+
+    Map<String, Map<MessageQueue, Long>> getConsumeStatus(String topic, String group,
+                                                          String clientAddr) throws RemotingException,
+            MQBrokerException, InterruptedException, MQClientException;
+
+
+    void cloneGroupOffset(String srcGroup, String destGroup, String topic, boolean isOffline) throws RemotingException,
+            MQClientException, InterruptedException, MQBrokerException;
 
 
     /************************************** 集群相关接口 **************************************/
 
     /**
-     * 查询集群信息（包含所有集群和关联broker节点，broker节点数据）
+     * 查询集群信息（包含集群关联所有broker节点，以及broker节点数据（其中包括所有broekr实例类型以及地址））
      *
      * @return
      * @throws InterruptedException
@@ -263,97 +437,46 @@ public interface MQAdminExt extends MQAdmin {
     ClusterInfo examineBrokerClusterInfo() throws InterruptedException, MQBrokerException, RemotingTimeoutException,
             RemotingSendRequestException, RemotingConnectException;
 
-
-    int wipeWritePermOfBroker(final String namesrvAddr, String brokerName) throws RemotingCommandException,
-            RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException, InterruptedException, MQClientException;
-
-    void putKVConfig(final String namespace, final String key, final String value);
-
-    String getKVConfig(final String namespace,
-                       final String key) throws RemotingException, MQClientException, InterruptedException;
-
-    KVTable getKVListByNamespace(
-            final String namespace) throws RemotingException, MQClientException, InterruptedException;
-
-    void deleteTopicInBroker(final Set<String> addrs, final String topic) throws RemotingException, MQBrokerException,
+    /**
+     * 查询集群ACL数据版本
+     *
+     * @param addr 传入集群中某个broker实例地址
+     * @return
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    ClusterAclVersionInfo examineBrokerClusterAclVersionInfo(final String addr) throws RemotingException, MQBrokerException,
             InterruptedException, MQClientException;
 
-    void deleteTopicInNameServer(final Set<String> addrs,
-                                 final String topic) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-
-    void createAndUpdateKvConfig(String namespace, String key,
-                                 String value) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    void deleteKvConfig(String namespace, String key) throws RemotingException, MQBrokerException, InterruptedException,
-            MQClientException;
-
-    List<RollbackStats> resetOffsetByTimestampOld(String consumerGroup, String topic, long timestamp, boolean force)
-            throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
-
-    Map<MessageQueue, Long> resetOffsetByTimestamp(String topic, String group, long timestamp, boolean isForce)
-            throws RemotingException, MQBrokerException, InterruptedException, MQClientException;
-
-    void resetOffsetNew(String consumerGroup, String topic, long timestamp) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-    Map<String, Map<MessageQueue, Long>> getConsumeStatus(String topic, String group,
-                                                          String clientAddr) throws RemotingException,
-            MQBrokerException, InterruptedException, MQClientException;
-
-    void createOrUpdateOrderConf(String key, String value,
-                                 boolean isCluster) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
-
-
-    List<QueueTimeSpan> queryConsumeTimeSpan(final String topic,
-                                             final String group) throws InterruptedException, MQBrokerException,
-            RemotingException, MQClientException;
-
+    /**
+     * 清理集群过期的消息队列
+     *
+     * @param cluster 集群名称
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
     boolean cleanExpiredConsumerQueue(String cluster) throws RemotingConnectException, RemotingSendRequestException,
             RemotingTimeoutException, MQClientException, InterruptedException;
 
-    boolean cleanExpiredConsumerQueueByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
-
+    /**
+     * 清理集群未使用的topic
+     *
+     * @param cluster 集群名称
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
     boolean cleanUnusedTopic(String cluster) throws RemotingConnectException, RemotingSendRequestException,
             RemotingTimeoutException, MQClientException, InterruptedException;
-
-    boolean cleanUnusedTopicByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
-
-
-    ConsumeMessageDirectlyResult consumeMessageDirectly(String consumerGroup,
-                                                        String clientId,
-                                                        String msgId) throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
-
-    ConsumeMessageDirectlyResult consumeMessageDirectly(String consumerGroup,
-                                                        String clientId,
-                                                        String topic,
-                                                        String msgId) throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
-
-    List<MessageTrack> messageTrackDetail(
-            MessageExt msg) throws RemotingException, MQClientException, InterruptedException,
-            MQBrokerException;
-
-    void cloneGroupOffset(String srcGroup, String destGroup, String topic, boolean isOffline) throws RemotingException,
-            MQClientException, InterruptedException, MQBrokerException;
-
-    BrokerStatsData viewBrokerStatsData(final String brokerAddr, final String statsName, final String statsKey)
-            throws RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException, MQClientException,
-            InterruptedException;
-
-    Set<String> getClusterList(final String topic) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
-
-    ConsumeStatsList fetchConsumeStatsInBroker(final String brokerAddr, boolean isOrder,
-                                               long timeoutMillis) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
-
-    Set<String> getTopicClusterList(
-            final String topic) throws InterruptedException, MQBrokerException, MQClientException, RemotingException;
 
 
     /************************************** broker相关,以及从从broker数据（topic,topic配置，消费分组，消费分组配置，消息队列） **************************************/
@@ -389,25 +512,9 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 向broker创建/更新 消费分组及其消费分组配置
-     * 如果broker配置 autoCreateSubscriptionGroup=false,需要先手动创建
-     * (这个信息存储在broker)
-     *
-     * @param addr
-     * @param config
-     * @throws RemotingException
-     * @throws MQBrokerException
-     * @throws InterruptedException
-     * @throws MQClientException
-     */
-    void createAndUpdateSubscriptionGroupConfig(final String addr,
-                                                final SubscriptionGroupConfig config) throws RemotingException,
-            MQBrokerException, InterruptedException, MQClientException;
-
-
-    /**
      * 查询指定broker实例内部所有Topic配置信息
-     * 包括
+     * <p>
+     * TopicConfigSerializeWrapper 包括
      * Topic以及对应TopicConfig(配置)
      * 数据版本来源（是否时master）
      *
@@ -506,19 +613,6 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 查询所有topic
-     * <p>
-     * 这里没有参数是根据当前namsserver，获取当前注册到nameserver所有集群所有broker中的所有topic
-     *
-     * @return
-     * @throws RemotingException
-     * @throws MQClientException
-     * @throws InterruptedException
-     */
-    TopicList fetchAllTopicList() throws RemotingException, MQClientException, InterruptedException;
-
-
-    /**
      * 查询指定集群所有topic
      *
      * @param clusterName
@@ -531,13 +625,143 @@ public interface MQAdminExt extends MQAdmin {
             String clusterName) throws RemotingException, MQClientException, InterruptedException;
 
 
+    /**
+     * 查询某个borker实例内指定topic配置
+     * （broker节点内所有broker实例topic配置相同）
+     *
+     * @param addr
+     * @return
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    AclConfig examineBrokerClusterAclConfig(final String addr) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+
+    /**
+     * @param addr
+     * @param plainAccessConfig
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void createAndUpdatePlainAccessConfig(final String addr, final PlainAccessConfig plainAccessConfig) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+    /**
+     * @param addr
+     * @param accessKey
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void deletePlainAccessConfig(final String addr, final String accessKey) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+    /**
+     * @param addr
+     * @param globalWhiteAddrs
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void updateGlobalWhiteAddrConfig(final String addr, final String globalWhiteAddrs) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+    /**
+     * @param brokerAddr
+     * @param statsName
+     * @param statsKey
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    BrokerStatsData viewBrokerStatsData(final String brokerAddr, final String statsName, final String statsKey)
+            throws RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException, MQClientException,
+            InterruptedException;
+
+
+    /**
+     * @param brokerAddr
+     * @param isOrder
+     * @param timeoutMillis
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    ConsumeStatsList fetchConsumeStatsInBroker(final String brokerAddr, boolean isOrder,
+                                               long timeoutMillis) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
+     * 清理指定broker节点过期消息队列
+     *
+     * @param addr
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    boolean cleanExpiredConsumerQueueByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
+     * 清理指定broker节点未使用topic
+     *
+     * @param addr
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    boolean cleanUnusedTopicByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
+     * @param namesrvAddr
+     * @param brokerName
+     * @return
+     * @throws RemotingCommandException
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    int wipeWritePermOfBroker(final String namesrvAddr, String brokerName) throws RemotingCommandException,
+            RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException, InterruptedException, MQClientException;
 
 
     /************************************** nameServer相关接口 **************************************/
 
+    /**
+     * 获取当前客户端配置nameServer地址列表
+     *
+     * @return
+     */
+    List<String> getNameServerAddressList();
+
 
     /**
-     * 更新nameServer 属性
+     * 更新指定nameServer 属性
      */
     void updateNameServerConfig(final Properties properties,
                                 final List<String> nameServers) throws InterruptedException, RemotingConnectException,
@@ -545,9 +769,9 @@ public interface MQAdminExt extends MQAdmin {
             MQClientException, MQBrokerException;
 
     /**
-     * 获取nameServer 属性
+     * 获取指定nameServer属性配置
      *
-     * @return nameServer 属性
+     * @return nameServer 属性配置
      */
     Map<String, Properties> getNameServerConfig(final List<String> nameServers) throws InterruptedException,
             RemotingTimeoutException, RemotingSendRequestException, RemotingConnectException,
@@ -555,18 +779,162 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 获取nameServer地址
+     * 向nameserver指定namespace，指定key的注册value（空实现）
      *
-     * @return
+     * @param namespace 命名空间
+     * @param key       key名称
+     * @param value     key值
      */
-    List<String> getNameServerAddressList();
+    void putKVConfig(final String namespace, final String key, final String value);
+
+
+    /**
+     * 向nameserver指定namespace，指定key的注册value
+     *
+     * @param namespace 命名空间
+     * @param key       key名称
+     * @param value     key值
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void createAndUpdateKvConfig(String namespace, String key,
+                                 String value) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+
+    /**
+     * 向nameserver删除指定namespace，指定key的值
+     *
+     * @param namespace 命名空间
+     * @param key       key名称
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void deleteKvConfig(String namespace, String key) throws RemotingException, MQBrokerException, InterruptedException,
+            MQClientException;
+
+
+    /**
+     * 向nameserver创建跟新 NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFIG空间下的key,value值
+     * <p>
+     * NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFI 用来存储指定topic配置（用来保证严格的顺序）参数NamesrvConfig.orderMessageEnable
+     *
+     * @param key       key值
+     * @param value     value值
+     * @param isCluster 是否是集群
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     * @throws MQClientException
+     */
+    void createOrUpdateOrderConf(String key, String value,
+                                 boolean isCluster) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
+
+    /**
+     * 查询指定namespace，指定key的value
+     *
+     * @param namespace 命名空间
+     * @param key       key名称
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    String getKVConfig(final String namespace,
+                       final String key) throws RemotingException, MQClientException, InterruptedException;
+
+    /**
+     * 查询指定namespace所有key-value
+     *
+     * @param namespace 命名空间
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    KVTable getKVListByNamespace(
+            final String namespace) throws RemotingException, MQClientException, InterruptedException;
 
 
     /************************************** 消息相关接口 **************************************/
 
-
+    /**
+     * 检查事务消息
+     *
+     * @param msgId 消息id
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
     boolean resumeCheckHalfMessage(String msgId)
             throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
 
+    /**
+     * 检查事务消息
+     *
+     * @param topic topic名称
+     * @param msgId 消息id
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
     boolean resumeCheckHalfMessage(final String topic, final String msgId) throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
+
+    /**
+     * 查询指定消息的消息轨迹
+     *
+     * @param msg 消息
+     * @return 消息规矩列表
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
+    List<MessageTrack> messageTrackDetail(
+            MessageExt msg) throws RemotingException, MQClientException, InterruptedException,
+            MQBrokerException;
+
+
+    /**
+     * 直接消费消息
+     *
+     * @param consumerGroup 消费分组
+     * @param clientId      消费分组客户端id
+     * @param msgId         消息id
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
+    ConsumeMessageDirectlyResult consumeMessageDirectly(String consumerGroup,
+                                                        String clientId,
+                                                        String msgId) throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
+
+    /**
+     * 直接消费消息
+     *
+     * @param consumerGroup 消费分组
+     * @param clientId      消费分组客户端id
+     * @param topic         topic名称
+     * @param msgId         消息id
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
+    ConsumeMessageDirectlyResult consumeMessageDirectly(String consumerGroup,
+                                                        String clientId,
+                                                        String topic,
+                                                        String msgId) throws RemotingException, MQClientException, InterruptedException, MQBrokerException;
 }

@@ -19,15 +19,30 @@ package org.apache.rocketmq.common.protocol.body;
 import org.apache.rocketmq.common.DataVersion;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * 集群ACL数据版本
+ */
 public class ClusterAclVersionInfo extends RemotingSerializable {
 
+    /**
+     * broker节点名称
+     */
     private String brokerName;
 
+    /**
+     * 参数broker实例地址
+     */
     private String brokerAddr;
 
-    private DataVersion aclConfigDataVersion;
-
+    /**
+     * 集群名称
+     */
     private String clusterName;
+
+    /**
+     * ACL数据版本
+     */
+    private DataVersion aclConfigDataVersion;
 
     public String getBrokerName() {
         return brokerName;
