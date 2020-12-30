@@ -25,11 +25,11 @@ import org.apache.rocketmq.common.TopicConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 /**
- * broker实例内部订阅组信息
+ * broker节点内所有topic配置信息
  */
 public class TopicConfigSerializeWrapper extends RemotingSerializable {
     /**
-     * Topic以及对应 TopicConfig(配置)
+     * Topic名称以及对应 TopicConfig(topic配置)
      */
     private ConcurrentMap<String, TopicConfig> topicConfigTable =
             new ConcurrentHashMap<String, TopicConfig>();

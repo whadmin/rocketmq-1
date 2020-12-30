@@ -19,12 +19,24 @@ package org.apache.rocketmq.common.protocol.body;
 
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * Broker节点状态统计数据
+ */
 public class BrokerStatsData extends RemotingSerializable {
 
+    /**
+     * 统计分钟
+     */
     private BrokerStatsItem statsMinute;
 
+    /**
+     * 统计小时
+     */
     private BrokerStatsItem statsHour;
 
+    /**
+     * 统计天
+     */
     private BrokerStatsItem statsDay;
 
     public BrokerStatsItem getStatsMinute() {

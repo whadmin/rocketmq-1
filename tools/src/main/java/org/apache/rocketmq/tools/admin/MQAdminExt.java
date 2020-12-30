@@ -513,6 +513,18 @@ public interface MQAdminExt extends MQAdmin {
             RemotingTimeoutException, MQClientException, InterruptedException;
 
     /**
+     * 查询指定集群所有topic
+     *
+     * @param clusterName
+     * @return
+     * @throws RemotingException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    TopicList fetchTopicsByCLuster(
+            String clusterName) throws RemotingException, MQClientException, InterruptedException;
+
+    /**
      * 清理集群未使用的topic
      *
      * @param cluster 集群名称
@@ -527,15 +539,15 @@ public interface MQAdminExt extends MQAdmin {
             RemotingTimeoutException, MQClientException, InterruptedException;
 
 
-    /************************************** broker相关 **************************************/
+    /************************************** broker维度相关接口 **************************************/
 
     /**
-     * 查询指定broker所有消费分组的配置（并安装topic分组）
+     * 查询指定broker节点所有消费分组的配置
      * 包括
-     * Topic以及对应订阅该Topic SubscriptionGroupConfig（消费分组配置）
-     * 数据版本来源（是否时master）
+     * 分组的配置名称以及对应的 SubscriptionGroupConfig（消费分组配置）
+     * 数据版本来源
      *
-     * @param brokerAddr    broker实例地址
+     * @param brokerAddr    broker节点某个实例地址
      * @param timeoutMillis 超时时间
      * @return
      * @throws InterruptedException
@@ -550,23 +562,41 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 查询指定broker指定消费分组的消费分组配置
+     * 查询指定broker节点指定 SubscriptionGroupConfig(消费分组的配置)
      *
-     * @param addr
-     * @param group
+     * @param addr  broker节点某个实例地址
+     * @param group 消费分组
      * @return
      */
     SubscriptionGroupConfig examineSubscriptionGroupConfig(final String addr, final String group);
 
 
+
     /**
-     * 查询指定broker实例内部所有Topic配置信息
-     * <p>
-     * TopicConfigSerializeWrapper 包括
-     * Topic以及对应TopicConfig(配置)
-     * 数据版本来源（是否时master）
+     * 查询broker节点所有消费分组的 ConsumeStats（消费分组状态信息）
      *
-     * @param brokerAddr    broker实例地址
+     * @param brokerAddr  broker节点某个实例地址
+     * @param isOrder
+     * @param timeoutMillis 超时时间
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    ConsumeStatsList fetchConsumeStatsInBroker(final String brokerAddr, boolean isOrder,
+                                               long timeoutMillis) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
+     * 查询指定broker节点内部所有Topic配置信息
+     * 包括:
+     * Topic以及对应TopicConfig(配置)
+     * 数据版本来源
+     *
+     * @param brokerAddr    broker节点某个实例地址
      * @param timeoutMillis 超时时间
      * @return
      * @throws InterruptedException
@@ -581,11 +611,26 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
+     * 清理指定broker节点未使用topic
+     *
+     * @param addr broker节点某个实例地址
+     * @return
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws MQClientException
+     * @throws InterruptedException
+     */
+    boolean cleanUnusedTopicByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
+            RemotingTimeoutException, MQClientException, InterruptedException;
+
+
+    /**
      * 查询指定broker实例内部状态
      * 包括：
      * （消费消息TPS	昨日生产总数	昨日消费总数	今天生产总数	今天消费总数...）
      *
-     * @param brokerAddr
+     * @param brokerAddr broker节点某个实例地址
      * @return
      * @throws RemotingConnectException
      * @throws RemotingSendRequestException
@@ -599,24 +644,9 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 更新指定broker实例内部属性
-     *
-     * @param brokerAddr broker实例地址
-     * @param properties 内部属性
-     * @throws RemotingConnectException
-     * @throws RemotingSendRequestException
-     * @throws RemotingTimeoutException
-     * @throws UnsupportedEncodingException
-     * @throws InterruptedException
-     * @throws MQBrokerException
-     */
-    void updateBrokerConfig(final String brokerAddr, final Properties properties) throws RemotingConnectException,
-            RemotingSendRequestException, RemotingTimeoutException, UnsupportedEncodingException, InterruptedException, MQBrokerException;
-
-    /**
      * 查询指定broker实例内部属性
      *
-     * @param brokerAddr broker实例地址
+     * @param brokerAddr broker节点某个实例地址
      * @return
      * @throws RemotingConnectException
      * @throws RemotingSendRequestException
@@ -630,12 +660,28 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 更新指定broker实例，指定消费队列在指定消费分组的消费逻辑偏移
+     * 更新指定broker实例内部属性
      *
-     * @param brokerAddr
-     * @param consumeGroup
-     * @param mq
-     * @param offset
+     * @param brokerAddr broker节点某个实例地址
+     * @param properties 内部属性
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws UnsupportedEncodingException
+     * @throws InterruptedException
+     * @throws MQBrokerException
+     */
+    void updateBrokerConfig(final String brokerAddr, final Properties properties) throws RemotingConnectException,
+            RemotingSendRequestException, RemotingTimeoutException, UnsupportedEncodingException, InterruptedException, MQBrokerException;
+
+
+    /**
+     * 更新指定broker节点指定MessageQueue（消费队列）在指定 consumeGroup（消费分组）的消费逻辑偏移
+     *
+     * @param brokerAddr   broker节点某个实例地址
+     * @param consumeGroup 消费分组
+     * @param mq           消费队列
+     * @param offset       消费逻辑偏移
      * @throws RemotingException
      * @throws InterruptedException
      * @throws MQBrokerException
@@ -645,14 +691,14 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 查询消费队列中数据
+     * 查询指定broker节点指定topic指定指定MessageQueue（消费队列）从指定逻辑偏移开始，count条数据
      *
-     * @param brokerAddr    broker ip address
+     * @param brokerAddr    broker节点某个实例地址
      * @param topic         topic
-     * @param queueId       id of queue
-     * @param index         start offset
-     * @param count         how many
-     * @param consumerGroup group
+     * @param queueId       消费队列
+     * @param index         开始逻辑偏移
+     * @param count         消息最大数量
+     * @param consumerGroup 消费分组
      */
     QueryConsumeQueueResponseBody queryConsumeQueue(final String brokerAddr,
                                                     final String topic, final int queueId,
@@ -661,23 +707,9 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 查询指定集群所有topic
+     * 查询指定broker节点ACL配置
      *
-     * @param clusterName
-     * @return
-     * @throws RemotingException
-     * @throws MQClientException
-     * @throws InterruptedException
-     */
-    TopicList fetchTopicsByCLuster(
-            String clusterName) throws RemotingException, MQClientException, InterruptedException;
-
-
-    /**
-     * 查询某个borker实例内指定topic配置
-     * （broker节点内所有broker实例topic配置相同）
-     *
-     * @param addr
+     * @param addr broker节点某个实例地址
      * @return
      * @throws RemotingException
      * @throws MQBrokerException
@@ -689,8 +721,10 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * @param addr
-     * @param plainAccessConfig
+     * 指定broker节点创建跟新ACL配置
+     *
+     * @param addr              broker节点某个实例地址
+     * @param plainAccessConfig ACL配置
      * @throws RemotingException
      * @throws MQBrokerException
      * @throws InterruptedException
@@ -700,8 +734,10 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException, MQClientException;
 
     /**
-     * @param addr
-     * @param accessKey
+     * 删除broker节点 ACL配置
+     *
+     * @param addr      broker节点某个实例地址
+     * @param accessKey acl key
      * @throws RemotingException
      * @throws MQBrokerException
      * @throws InterruptedException
@@ -710,21 +746,13 @@ public interface MQAdminExt extends MQAdmin {
     void deletePlainAccessConfig(final String addr, final String accessKey) throws RemotingException, MQBrokerException,
             InterruptedException, MQClientException;
 
-    /**
-     * @param addr
-     * @param globalWhiteAddrs
-     * @throws RemotingException
-     * @throws MQBrokerException
-     * @throws InterruptedException
-     * @throws MQClientException
-     */
-    void updateGlobalWhiteAddrConfig(final String addr, final String globalWhiteAddrs) throws RemotingException, MQBrokerException,
-            InterruptedException, MQClientException;
 
     /**
-     * @param brokerAddr
-     * @param statsName
-     * @param statsKey
+     * 查询broker节点指定状态统计
+     *
+     * @param brokerAddr broker节点某个实例地址
+     * @param statsName  状态名称
+     * @param statsKey   状态key
      * @return
      * @throws RemotingConnectException
      * @throws RemotingSendRequestException
@@ -737,20 +765,7 @@ public interface MQAdminExt extends MQAdmin {
             InterruptedException;
 
 
-    /**
-     * @param brokerAddr
-     * @param isOrder
-     * @param timeoutMillis
-     * @return
-     * @throws RemotingConnectException
-     * @throws RemotingSendRequestException
-     * @throws RemotingTimeoutException
-     * @throws MQClientException
-     * @throws InterruptedException
-     */
-    ConsumeStatsList fetchConsumeStatsInBroker(final String brokerAddr, boolean isOrder,
-                                               long timeoutMillis) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
+
 
 
     /**
@@ -769,23 +784,23 @@ public interface MQAdminExt extends MQAdmin {
 
 
     /**
-     * 清理指定broker节点未使用topic
+     * 更新broker节点全局白名单
      *
-     * @param addr
-     * @return
-     * @throws RemotingConnectException
-     * @throws RemotingSendRequestException
-     * @throws RemotingTimeoutException
-     * @throws MQClientException
+     * @param addr             broker节点某个实例地址
+     * @param globalWhiteAddrs
+     * @throws RemotingException
+     * @throws MQBrokerException
      * @throws InterruptedException
+     * @throws MQClientException
      */
-    boolean cleanUnusedTopicByAddr(String addr) throws RemotingConnectException, RemotingSendRequestException,
-            RemotingTimeoutException, MQClientException, InterruptedException;
-
+    void updateGlobalWhiteAddrConfig(final String addr, final String globalWhiteAddrs) throws RemotingException, MQBrokerException,
+            InterruptedException, MQClientException;
 
     /**
-     * @param namesrvAddr
-     * @param brokerName
+     * 给指定broker节点去掉写入权限
+     *
+     * @param namesrvAddr nameserver地址
+     * @param brokerName  broker节点名称
      * @return
      * @throws RemotingCommandException
      * @throws RemotingConnectException

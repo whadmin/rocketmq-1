@@ -22,9 +22,24 @@ import java.util.Map;
 import org.apache.rocketmq.common.admin.ConsumeStats;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * broker节点所有消费分组的 ConsumeStats（消费分组状态信息）
+ */
 public class ConsumeStatsList extends RemotingSerializable {
+
+    /**
+     * 不同消费分组的ConsumeStats（消费分组状态信息）
+     */
     private List<Map<String/*subscriptionGroupName*/, List<ConsumeStats>>> consumeStatsList = new ArrayList<Map<String/*subscriptionGroupName*/, List<ConsumeStats>>>();
+
+    /**
+     * broker节点某个实例地址
+     */
     private String brokerAddr;
+
+    /**
+     * 总的消息堆积（所有消费分组）
+     */
     private long totalDiff;
 
     public List<Map<String, List<ConsumeStats>>> getConsumeStatsList() {

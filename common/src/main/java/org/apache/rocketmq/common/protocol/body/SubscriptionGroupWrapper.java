@@ -24,11 +24,11 @@ import org.apache.rocketmq.common.subscription.SubscriptionGroupConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 /**
- * broker实例内部订阅组信息
+ * broker节点内部消费分组配置
  */
 public class SubscriptionGroupWrapper extends RemotingSerializable {
     /**
-     * Topic以及对应订阅该Topic消费分组配置
+     * broker节点内部消费分组配置以及对应的topic
      */
     private ConcurrentMap<String, SubscriptionGroupConfig> subscriptionGroupTable =
         new ConcurrentHashMap<String, SubscriptionGroupConfig>(1024);
