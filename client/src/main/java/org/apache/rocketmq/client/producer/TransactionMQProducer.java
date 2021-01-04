@@ -17,19 +17,36 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.concurrent.ExecutorService;
+
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.protocol.NamespaceUtil;
 import org.apache.rocketmq.remoting.RPCHook;
 
 public class TransactionMQProducer extends DefaultMQProducer {
+
     private TransactionCheckListener transactionCheckListener;
+    /**
+     * 检查线程池最小值
+     */
     private int checkThreadPoolMinSize = 1;
+    /**
+     * 检查线程池最大值
+     */
     private int checkThreadPoolMaxSize = 1;
+    /**
+     * 检查请求最大值
+     */
     private int checkRequestHoldMax = 2000;
 
+    /**
+     * 线程池池
+     */
     private ExecutorService executorService;
 
+    /**
+     * 事务监听器
+     */
     private TransactionListener transactionListener;
 
     public TransactionMQProducer() {
@@ -51,12 +68,21 @@ public class TransactionMQProducer extends DefaultMQProducer {
         super(namespace, producerGroup, rpcHook);
     }
 
+
+    /**
+     * 启动 TransactionMQProducer
+     *
+     * @throws MQClientException
+     */
     @Override
     public void start() throws MQClientException {
         this.defaultMQProducerImpl.initTransactionEnv();
         super.start();
     }
 
+    /**
+     * 关闭 TransactionMQProducer
+     */
     @Override
     public void shutdown() {
         super.shutdown();
@@ -70,7 +96,7 @@ public class TransactionMQProducer extends DefaultMQProducer {
     @Override
     @Deprecated
     public TransactionSendResult sendMessageInTransaction(final Message msg,
-        final LocalTransactionExecuter tranExecuter, final Object arg) throws MQClientException {
+                                                          final LocalTransactionExecuter tranExecuter, final Object arg) throws MQClientException {
         if (null == this.transactionCheckListener) {
             throw new MQClientException("localTransactionBranchCheckListener is null", null);
         }
@@ -81,7 +107,7 @@ public class TransactionMQProducer extends DefaultMQProducer {
 
     @Override
     public TransactionSendResult sendMessageInTransaction(final Message msg,
-        final Object arg) throws MQClientException {
+                                                          final Object arg) throws MQClientException {
         if (null == this.transactionListener) {
             throw new MQClientException("TransactionListener is null", null);
         }

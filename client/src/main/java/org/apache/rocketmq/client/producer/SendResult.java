@@ -19,21 +19,56 @@ package org.apache.rocketmq.client.producer;
 import com.alibaba.fastjson.JSON;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 发送消息结果
+ */
 public class SendResult {
+
+    /**
+     * 发送消息状态
+     */
     private SendStatus sendStatus;
+
+    /**
+     * 消息ID
+     */
     private String msgId;
+
+    /**
+     * 消息消息队列
+     */
     private MessageQueue messageQueue;
+
+    /**
+     * 存储消息队列的逻辑偏移量
+     */
     private long queueOffset;
+
+    /**
+     * 事务消息Id
+     */
     private String transactionId;
+
+    /**
+     * 消息物理Id
+     */
     private String offsetMsgId;
+
+    /**
+     * 分区
+     */
     private String regionId;
+
+    /**
+     * 是否开启消息轨迹
+     */
     private boolean traceOn = true;
 
     public SendResult() {
     }
 
     public SendResult(SendStatus sendStatus, String msgId, String offsetMsgId, MessageQueue messageQueue,
-        long queueOffset) {
+                      long queueOffset) {
         this.sendStatus = sendStatus;
         this.msgId = msgId;
         this.offsetMsgId = offsetMsgId;
@@ -42,8 +77,8 @@ public class SendResult {
     }
 
     public SendResult(final SendStatus sendStatus, final String msgId, final MessageQueue messageQueue,
-        final long queueOffset, final String transactionId,
-        final String offsetMsgId, final String regionId) {
+                      final long queueOffset, final String transactionId,
+                      final String offsetMsgId, final String regionId) {
         this.sendStatus = sendStatus;
         this.msgId = msgId;
         this.messageQueue = messageQueue;
@@ -128,6 +163,6 @@ public class SendResult {
     @Override
     public String toString() {
         return "SendResult [sendStatus=" + sendStatus + ", msgId=" + msgId + ", offsetMsgId=" + offsetMsgId + ", messageQueue=" + messageQueue
-            + ", queueOffset=" + queueOffset + "]";
+                + ", queueOffset=" + queueOffset + "]";
     }
 }

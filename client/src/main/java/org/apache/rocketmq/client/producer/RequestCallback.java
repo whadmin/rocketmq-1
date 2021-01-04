@@ -19,8 +19,22 @@ package org.apache.rocketmq.client.producer;
 
 import org.apache.rocketmq.common.message.Message;
 
+/**
+ * 异步发送消息回调，通知消息是否成功发送
+ */
 public interface RequestCallback {
+
+    /**
+     * 消息发送成功回调
+     *
+     * @param message 消息
+     */
     void onSuccess(final Message message);
 
+    /**
+     * 消息发送失败异常回调
+     *
+     * @param e 异常
+     */
     void onException(final Throwable e);
 }

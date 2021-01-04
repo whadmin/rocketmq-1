@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.producer;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+
 import org.apache.rocketmq.client.ClientConfig;
 import org.apache.rocketmq.client.QueryResult;
 import org.apache.rocketmq.client.Validators;
@@ -44,129 +45,132 @@ import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
- * This class is the entry point for applications intending to send messages. </p>
- *
- * It's fine to tune fields which exposes getter/setter methods, but keep in mind, all of them should work well out of
- * box for most scenarios. </p>
- *
- * This class aggregates various <code>send</code> methods to deliver messages to brokers. Each of them has pros and
- * cons; you'd better understand strengths and weakness of them before actually coding. </p>
- *
- * <p> <strong>Thread Safety:</strong> After configuring and starting process, this class can be regarded as thread-safe
- * and used among multiple threads context. </p>
+ * DefaultMQProducer 是Producer客户端应用程序API路口.
+ * DefaultMQProducer 是Producer核心配置。
+ * DefaultMQProducer类实现了MQProducer接口，但并非MQProducer接口核心实现，
+ * 其核心实现依赖于内部DefaultMQProducerImpl属性。
+ * DefaultMQProducer更多职责是路口和配置
+ * <p>
+ * DefaultMQProducer使用：
+ * <p>
+ * 1 客户端通过 下面4个步骤发完消息的发送
+ * 创建 DefaultMQProducer defaultMQProducer=new DefaultMQProducer()
+ * 配置 DefaultMQProducer.setXXX()
+ * 初始化 producer.start()
+ * 发送消息  producer.send(msg)
+ * 2 DefaultMQProducer发送消息的核心实现交由DefaultMQProducerImpl去实现【Producer核心类】
+ * 3 DefaultMQProducer是ClientConfig的子类（提供了针对Producer配置）
  */
 public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
-     * Wrapping internal implementations for virtually all methods presented in this class.
+     * MQProducer接口方法内部内部核心实现类, DefaultMQProducer负责配置功能，大多数功能都委托给其处理执行
      */
     protected final transient DefaultMQProducerImpl defaultMQProducerImpl;
+
+    /**
+     * 客户端日志
+     */
     private final InternalLogger log = ClientLogger.getLog();
     /**
-     * Producer group conceptually aggregates all producer instances of exactly same role, which is particularly
-     * important when transactional messages are involved. </p>
-     *
-     * For non-transactional messages, it does not matter as long as it's unique per process. </p>
-     *
-     * See {@linktourl http://rocketmq.apache.org/docs/core-concept/} for more discussion.
+     * 生产者组
      */
     private String producerGroup;
 
     /**
-     * Just for testing or demo program
+     * 仅用于测试或演示程序自动生成topic
      */
     private String createTopicKey = TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC;
 
     /**
-     * Number of queues to create per default topic.
+     * 每个Topic默认创建的队列数量
      */
     private volatile int defaultTopicQueueNums = 4;
 
     /**
-     * Timeout for sending messages.
+     * 发送消息超时时间
      */
     private int sendMsgTimeout = 3000;
 
     /**
-     * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
+     * 压缩消息体阈值，即大于4k的消息体将默认压缩。
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
     /**
-     * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
-     *
-     * This may potentially cause message duplication which is up to application developers to resolve.
+     * 发送同步消息失败最大重试次数。
+     * 这可能会导致消息重复，这取决于应用程序开发人员要解决的问题。
      */
     private int retryTimesWhenSendFailed = 2;
 
     /**
-     * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
-     *
-     * This may potentially cause message duplication which is up to application developers to resolve.
+     * 发送异步消息失败最大重试次数。
+     * 这可能会导致消息重复，这取决于应用程序开发人员要解决的问题。
      */
     private int retryTimesWhenSendAsyncFailed = 2;
 
     /**
-     * Indicate whether to retry another broker on sending failure internally.
+     * 指示是否重试另一个代理在内部发送失败。
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
-     * Maximum allowed message size in bytes.
+     * 允许的最大消息大小(以字节为单位)。
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
     /**
-     * Interface of asynchronous transfer data
+     * 消息轨迹消息调度员接口
      */
     private TraceDispatcher traceDispatcher = null;
 
     /**
-     * Default constructor.
+     * DefaultMQProducer默认构造函数。
      */
     public DefaultMQProducer() {
         this(null, MixAll.DEFAULT_PRODUCER_GROUP, null);
     }
 
     /**
-     * Constructor specifying the RPC hook.
+     * DefaultMQProducer构造函数
      *
-     * @param rpcHook RPC hook to execute per each remoting command execution.
+     * @param rpcHook RPC钩子
      */
     public DefaultMQProducer(RPCHook rpcHook) {
         this(null, MixAll.DEFAULT_PRODUCER_GROUP, rpcHook);
     }
 
     /**
-     * Constructor specifying producer group.
+     * DefaultMQProducer构造函数
      *
-     * @param producerGroup Producer group, see the name-sake field.
+     * @param producerGroup 生产者分组
      */
     public DefaultMQProducer(final String producerGroup) {
         this(null, producerGroup, null);
     }
 
     /**
-     * Constructor specifying producer group.
+     * DefaultMQProducer构造函数
      *
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param rpcHook RPC hook to execute per each remoting command execution.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default
-     * trace topic name.
+     * @param producerGroup        消费分组
+     * @param rpcHook              RPC钩子
+     * @param enableMsgTrace       是否开启消息轨迹
+     * @param customizedTraceTopic 消息轨迹指定的topic
      */
     public DefaultMQProducer(final String producerGroup, RPCHook rpcHook, boolean enableMsgTrace,
-        final String customizedTraceTopic) {
+                             final String customizedTraceTopic) {
         this.producerGroup = producerGroup;
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
-        //if client open the message trace feature
+        //是否开启消息轨迹
         if (enableMsgTrace) {
             try {
+                //创建 AsyncTraceDispatcher（异步消息轨迹调度员）
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(producerGroup, TraceDispatcher.Type.PRODUCE, customizedTraceTopic, rpcHook);
                 dispatcher.setHostProducer(this.defaultMQProducerImpl);
                 traceDispatcher = dispatcher;
+                //将 AsyncTraceDispatcher 注册到 DefaultMQProducerImpl
                 this.defaultMQProducerImpl.registerSendMessageHook(
-                    new SendMessageTraceHookImpl(traceDispatcher));
+                        new SendMessageTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
                 log.error("system mqtrace hook init failed ,maybe can't send msg trace data");
             }
@@ -174,31 +178,31 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Constructor specifying producer group.
+     * DefaultMQProducer构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param producerGroup Producer group, see the name-sake field.
+     * @param namespace     命名空间
+     * @param producerGroup 生成者分组
      */
     public DefaultMQProducer(final String namespace, final String producerGroup) {
         this(namespace, producerGroup, null);
     }
 
     /**
-     * Constructor specifying both producer group and RPC hook.
+     * DefaultMQProducer构造函数
      *
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param rpcHook RPC hook to execute per each remoting command execution.
+     * @param producerGroup 生成者分组
+     * @param rpcHook       RPC钩子
      */
     public DefaultMQProducer(final String producerGroup, RPCHook rpcHook) {
         this(null, producerGroup, rpcHook);
     }
 
     /**
-     * Constructor specifying namespace, producer group and RPC hook.
+     * DefaultMQProducer构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param rpcHook RPC hook to execute per each remoting command execution.
+     * @param namespace     命名空间
+     * @param producerGroup 生成者分组
+     * @param rpcHook       RPC钩子
      */
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook) {
         this.namespace = namespace;
@@ -207,51 +211,50 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Constructor specifying producer group and enabled msg trace flag.
+     * DefaultMQProducer构造函数
      *
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param enableMsgTrace Switch flag instance for message trace.
+     * @param producerGroup  生成者分组
+     * @param enableMsgTrace 是否使用消息轨迹
      */
     public DefaultMQProducer(final String producerGroup, boolean enableMsgTrace) {
         this(null, producerGroup, null, enableMsgTrace, null);
     }
 
     /**
-     * Constructor specifying producer group, enabled msgTrace flag and customized trace topic name.
+     * DefaultMQProducer构造函数
      *
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default
-     * trace topic name.
+     * @param producerGroup        生成者分组
+     * @param enableMsgTrace       是否使用消息轨迹
+     * @param customizedTraceTopic 消息轨迹存储topic名称
      */
     public DefaultMQProducer(final String producerGroup, boolean enableMsgTrace, final String customizedTraceTopic) {
         this(null, producerGroup, null, enableMsgTrace, customizedTraceTopic);
     }
 
     /**
-     * Constructor specifying namespace, producer group, RPC hook, enabled msgTrace flag and customized trace topic
-     * name.
+     * DefaultMQProducer构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param producerGroup Producer group, see the name-sake field.
-     * @param rpcHook RPC hook to execute per each remoting command execution.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default
-     * trace topic name.
+     * @param namespace            命名空间
+     * @param producerGroup        生成者分组
+     * @param rpcHook              RPC钩子
+     * @param enableMsgTrace       是否使用消息轨迹
+     * @param customizedTraceTopic 消息轨迹存储topic名称
      */
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook,
-        boolean enableMsgTrace, final String customizedTraceTopic) {
+                             boolean enableMsgTrace, final String customizedTraceTopic) {
         this.namespace = namespace;
         this.producerGroup = producerGroup;
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
-        //if client open the message trace feature
+        //是否开启消息轨迹
         if (enableMsgTrace) {
             try {
+                //创建 AsyncTraceDispatcher（异步消息轨迹调度员）
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(producerGroup, TraceDispatcher.Type.PRODUCE, customizedTraceTopic, rpcHook);
                 dispatcher.setHostProducer(this.getDefaultMQProducerImpl());
                 traceDispatcher = dispatcher;
+                //将 AsyncTraceDispatcher 注册到 DefaultMQProducerImpl
                 this.getDefaultMQProducerImpl().registerSendMessageHook(
-                    new SendMessageTraceHookImpl(traceDispatcher));
+                        new SendMessageTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
                 log.error("system mqtrace hook init failed ,maybe can't send msg trace data");
             }
@@ -259,17 +262,18 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Start this producer instance. </p>
+     * 启动DefaultMQProducer实例
+     * <p>
+     * 执行许多内部初始化过程来准备此实例，因此，在发送或查询消息之前必须调用此方法。
      *
-     * <strong> Much internal initializing procedures are carried out to make this instance prepared, thus, it's a must
-     * to invoke this method before sending or querying messages. </strong> </p>
-     *
-     * @throws MQClientException if there is any unexpected error.
+     * @throws MQClientException 如果有任何意外错误。
      */
     @Override
     public void start() throws MQClientException {
         this.setProducerGroup(withNamespace(this.producerGroup));
+        //启动DefaultMQProducerImpl
         this.defaultMQProducerImpl.start();
+        //启动traceDispatcher
         if (null != traceDispatcher) {
             try {
                 traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());
@@ -280,18 +284,20 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * This method shuts down this producer instance and releases related resources.
+     * 关闭DefaultMQProducer实例并且释放相关资源
      */
     @Override
     public void shutdown() {
+        //关闭DefaultMQProducerImpl
         this.defaultMQProducerImpl.shutdown();
+        //关闭traceDispatcher
         if (null != traceDispatcher) {
             traceDispatcher.shutdown();
         }
     }
 
     /**
-     * Fetch message queues of topic <code>topic</code>, to which we may send/publish messages.
+     * 获取存储指定topic的消息队列
      *
      * @param topic Topic to fetch.
      * @return List of message queues readily to send messages to
@@ -302,95 +308,252 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         return this.defaultMQProducerImpl.fetchPublishMessageQueues(withNamespace(topic));
     }
 
+    /*********************  同步消息接口开始   *********************/
     /**
-     * Send message in synchronous mode. This method returns only when the sending procedure totally completes. </p>
+     * 发送同步消息。
+     * 同步消息需要等待客户端响应。
+     * <p>
+     * 发送同步消息内部具有内部重试机制，重试的次数参考{@link #retryTimesWhenSendFailed}次，因而会导致发送重复消息给broker
      *
-     * <strong>Warn:</strong> this method has internal retry-mechanism, that is, internal implementation will retry
-     * {@link #retryTimesWhenSendFailed} times before claiming failure. As a result, multiple messages may potentially
-     * delivered to broker(s). It's up to the application developers to resolve potential duplication issue.
-     *
-     * @param msg Message to send.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg 发送的消息
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public SendResult send(
-        Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         Validators.checkMessage(msg, this);
         msg.setTopic(withNamespace(msg.getTopic()));
         return this.defaultMQProducerImpl.send(msg);
     }
 
+
     /**
-     * Same to {@link #send(Message)} with send timeout specified in addition.
+     * 相对于{@link #send(Message)}设置超时时间，
      *
-     * @param msg Message to send.
-     * @param timeout send timeout.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg     发送的消息
+     * @param timeout 同步消息超时时间
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public SendResult send(Message msg,
-        long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+                           long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         return this.defaultMQProducerImpl.send(msg, timeout);
     }
 
     /**
-     * Send message to broker asynchronously. </p>
+     * 相对于{@link #send(Message, long)}请求采用了异步机制
      *
-     * This method returns immediately. On sending completion, <code>sendCallback</code> will be executed. </p>
+     * @param msg     发送的消息
+     * @param timeout 超时时间
+     * @return 回复消息
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
+     */
+    @Override
+    public Message request(final Message msg, final long timeout) throws RequestTimeoutException, MQClientException,
+            RemotingException, MQBrokerException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        return this.defaultMQProducerImpl.request(msg, timeout);
+    }
+
+    /**
+     * 发送同步消息给指定消息队列
+     * 同步消息需要等待客户端响应
+     * <p>
+     * 发送同步消息内部具有内部重试机制，重试的次数参考{@link #retryTimesWhenSendFailed}次，因而会导致发送重复消息给broker
      *
-     * Similar to {@link #send(Message)}, internal implementation would potentially retry up to {@link
-     * #retryTimesWhenSendAsyncFailed} times before claiming sending failure, which may yield message duplication and
-     * application developers are the one to resolve this potential issue.
+     * @param msg 发送的消息
+     * @param mq  消息队列
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public SendResult send(Message msg, MessageQueue mq)
+            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        return this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq));
+    }
+
+    /**
+     * 相对于{@link #send(Message, MessageQueue)}设置超时时间，
      *
-     * @param msg Message to send.
-     * @param sendCallback Callback to execute on sending completed, either successful or unsuccessful.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg     发送的消息
+     * @param mq      消息队列
+     * @param timeout 超时时间
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public SendResult send(Message msg, MessageQueue mq, long timeout)
+            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        return this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), timeout);
+    }
+
+    /**
+     * 相对于{@link #send(Message, MessageQueue, long)}请求采用了异步机制
+     *
+     * @param msg     请求的消息
+     * @param mq      消息队列
+     * @param timeout 超时时间
+     * @return 回复消息
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
+     */
+    @Override
+    public Message request(final Message msg, final MessageQueue mq, final long timeout)
+            throws MQClientException, RemotingException, MQBrokerException, InterruptedException, RequestTimeoutException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        return this.defaultMQProducerImpl.request(msg, mq, timeout);
+    }
+
+    /*********************  异步消息接口开始   *********************/
+
+    /**
+     * 发送异步消息。异步消息不需要等待客户端响应。
+     * 异步消息通过{@link SendCallback}处理broker回调，通知消息是否成功发送
+     * <p>
+     * 发送异步消息内部具有内部重试机制，重试的次数参考{@link #retryTimesWhenSendAsyncFailed}次，因而会导致发送重复消息给broker
+     *
+     * @param msg          发送的消息
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public void send(Message msg,
-        SendCallback sendCallback) throws MQClientException, RemotingException, InterruptedException {
+                     SendCallback sendCallback) throws MQClientException, RemotingException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQProducerImpl.send(msg, sendCallback);
     }
 
     /**
-     * Same to {@link #send(Message, SendCallback)} with send timeout specified in addition.
+     * 相对于{@link #send(Message, SendCallback)}设置超时时间，
      *
-     * @param msg message to send.
-     * @param sendCallback Callback to execute.
-     * @param timeout send timeout.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg          发送的消息
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public void send(Message msg, SendCallback sendCallback, long timeout)
-        throws MQClientException, RemotingException, InterruptedException {
+            throws MQClientException, RemotingException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQProducerImpl.send(msg, sendCallback, timeout);
     }
 
     /**
-     * Similar to <a href="https://en.wikipedia.org/wiki/User_Datagram_Protocol">UDP</a>, this method won't wait for
-     * acknowledgement from broker before return. Obviously, it has maximums throughput yet potentials of message loss.
+     * 相对于{@link #send(Message, SendCallback, long)}请求采用了异步机制
      *
-     * @param msg Message to send.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg     发送的消息
+     * @param timeout 超时时间
+     * @return 回复消息
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
+     */
+    @Override
+    public void request(final Message msg, final RequestCallback requestCallback, final long timeout)
+            throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.request(msg, requestCallback, timeout);
+    }
+
+
+    /**
+     * 发送异步消息给指定消息队列。
+     * 异步消息不需要等待客户端响应。异步消息通过{@link SendCallback}处理broker回调，通知消息是否成功发送
+     * <p>
+     * 发送异步消息内部具有内部重试机制，重试的次数参考{@link #retryTimesWhenSendAsyncFailed}次，因而会导致发送重复消息给broker
+     *
+     * @param msg          发送的消息
+     * @param mq           消息队列
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public void send(Message msg, MessageQueue mq, SendCallback sendCallback)
+            throws MQClientException, RemotingException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), sendCallback);
+    }
+
+    /**
+     * 相对于{@link #send(Message, MessageQueue, SendCallback)}设置超时时间，
+     *
+     * @param msg          发送的消息
+     * @param mq           消息队列
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @param timeout      超时时间
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public void send(Message msg, MessageQueue mq, SendCallback sendCallback, long timeout)
+            throws MQClientException, RemotingException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), sendCallback, timeout);
+    }
+
+    /**
+     * 相对于{@link #send(Message, MessageQueue, SendCallback, long)} 请求采用了异步机制
+     *
+     * @param msg             发送的消息
+     * @param requestCallback 处理broker回调，通知消息是否成功发送
+     * @param timeout         超时时间
+     * @return 回复消息
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
+     */
+    @Override
+    public void request(final Message msg, final MessageQueue mq, final RequestCallback requestCallback, long timeout)
+            throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.request(msg, mq, requestCallback, timeout);
+    }
+
+
+    /*********************  单向消息接口开始   *********************/
+
+    /**
+     * 发送单向消息
+     * 单向消息不需要broker响应是一种不可靠的消息
+     *
+     * @param msg 发送的消息
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public void sendOneway(Message msg) throws MQClientException, RemotingException, InterruptedException {
@@ -399,354 +562,212 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Same to {@link #send(Message)} with target message queue specified in addition.
+     * 发送单向消息给指定消息队列
+     * 单向消息不需要broker响应是一种不可靠的消息
      *
-     * @param msg Message to send.
-     * @param mq Target message queue.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public SendResult send(Message msg, MessageQueue mq)
-        throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        return this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq));
-    }
-
-    /**
-     * Same to {@link #send(Message)} with target message queue and send timeout specified.
-     *
-     * @param msg Message to send.
-     * @param mq Target message queue.
-     * @param timeout send timeout.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public SendResult send(Message msg, MessageQueue mq, long timeout)
-        throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        return this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), timeout);
-    }
-
-    /**
-     * Same to {@link #send(Message, SendCallback)} with target message queue specified.
-     *
-     * @param msg Message to send.
-     * @param mq Target message queue.
-     * @param sendCallback Callback to execute on sending completed, either successful or unsuccessful.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public void send(Message msg, MessageQueue mq, SendCallback sendCallback)
-        throws MQClientException, RemotingException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), sendCallback);
-    }
-
-    /**
-     * Same to {@link #send(Message, SendCallback)} with target message queue and send timeout specified.
-     *
-     * @param msg Message to send.
-     * @param mq Target message queue.
-     * @param sendCallback Callback to execute on sending completed, either successful or unsuccessful.
-     * @param timeout Send timeout.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public void send(Message msg, MessageQueue mq, SendCallback sendCallback, long timeout)
-        throws MQClientException, RemotingException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.send(msg, queueWithNamespace(mq), sendCallback, timeout);
-    }
-
-    /**
-     * Same to {@link #sendOneway(Message)} with target message queue specified.
-     *
-     * @param msg Message to send.
-     * @param mq Target message queue.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg 发送的消息
+     * @param mq  消息队列
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public void sendOneway(Message msg,
-        MessageQueue mq) throws MQClientException, RemotingException, InterruptedException {
+                           MessageQueue mq) throws MQClientException, RemotingException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQProducerImpl.sendOneway(msg, queueWithNamespace(mq));
     }
 
+
+    /*********************  顺序消息接口开始   *********************/
+
     /**
-     * Same to {@link #send(Message)} with message queue selector specified.
+     * 发送同步消息
+     * 消息按照MessageQueueSelector消息队列选择器规则分发到指定消息队列
+     * 同一个订单消息会发送到同一个消息队列保证顺序消费
      *
-     * @param msg Message to send.
-     * @param selector Message queue selector, through which we get target message queue to deliver message to.
-     * @param arg Argument to work along with message queue selector.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg      发送的消息
+     * @param selector 消息队列选择器
+     * @param arg      消息队列选择器参数
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg)
-        throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         return this.defaultMQProducerImpl.send(msg, selector, arg);
     }
 
     /**
-     * Same to {@link #send(Message, MessageQueueSelector, Object)} with send timeout specified.
+     * 相对于{@link #send(Message, MessageQueueSelector, Object)}设置超时时间，
      *
-     * @param msg Message to send.
-     * @param selector Message queue selector, through which we get target message queue to deliver message to.
-     * @param arg Argument to work along with message queue selector.
-     * @param timeout Send timeout.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message ID of the message,
-     * {@link SendStatus} indicating broker storage/replication status, message queue sent to, etc.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg      发送的消息
+     * @param selector 消息队列选择器
+     * @param arg      消息队列选择器参数
+     * @param timeout  超时时间
+     * @return {@link SendResult}   发送消息结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg, long timeout)
-        throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         return this.defaultMQProducerImpl.send(msg, selector, arg, timeout);
     }
 
     /**
-     * Same to {@link #send(Message, SendCallback)} with message queue selector specified.
+     * 相对于{@link #send(Message, MessageQueueSelector, Object, long)}请求采用了异步机制
      *
-     * @param msg Message to send.
-     * @param selector Message selector through which to get target message queue.
-     * @param arg Argument used along with message queue selector.
-     * @param sendCallback callback to execute on sending completion.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public void send(Message msg, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
-        throws MQClientException, RemotingException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.send(msg, selector, arg, sendCallback);
-    }
-
-    /**
-     * Same to {@link #send(Message, MessageQueueSelector, Object, SendCallback)} with timeout specified.
-     *
-     * @param msg Message to send.
-     * @param selector Message selector through which to get target message queue.
-     * @param arg Argument used along with message queue selector.
-     * @param sendCallback callback to execute on sending completion.
-     * @param timeout Send timeout.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    @Override
-    public void send(Message msg, MessageQueueSelector selector, Object arg, SendCallback sendCallback, long timeout)
-        throws MQClientException, RemotingException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.send(msg, selector, arg, sendCallback, timeout);
-    }
-
-    /**
-     * Send request message in synchronous mode. This method returns only when the consumer consume the request message and reply a message. </p>
-     *
-     * <strong>Warn:</strong> this method has internal retry-mechanism, that is, internal implementation will retry
-     * {@link #retryTimesWhenSendFailed} times before claiming failure. As a result, multiple messages may potentially
-     * delivered to broker(s). It's up to the application developers to resolve potential duplication issue.
-     *
-     * @param msg request message to send
-     * @param timeout request timeout
+     * @param msg      发送的消息
+     * @param selector 消息队列选择器
+     * @param arg      消息队列选择器参数
+     * @param timeout  超时时间
      * @return reply message
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws RequestTimeoutException if request timeout.
-     */
-    @Override
-    public Message request(final Message msg, final long timeout) throws RequestTimeoutException, MQClientException,
-        RemotingException, MQBrokerException, InterruptedException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        return this.defaultMQProducerImpl.request(msg, timeout);
-    }
-
-    /**
-     * Request asynchronously. </p>
-     * This method returns immediately. On receiving reply message, <code>requestCallback</code> will be executed. </p>
-     *
-     * Similar to {@link #request(Message, long)}, internal implementation would potentially retry up to {@link
-     * #retryTimesWhenSendAsyncFailed} times before claiming sending failure, which may yield message duplication and
-     * application developers are the one to resolve this potential issue.
-     *
-     * @param msg request message to send
-     * @param requestCallback callback to execute on request completion.
-     * @param timeout request timeout
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws MQBrokerException if there is any broker error.
-     */
-    @Override
-    public void request(final Message msg, final RequestCallback requestCallback, final long timeout)
-        throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.request(msg, requestCallback, timeout);
-    }
-
-    /**
-     * Same to {@link #request(Message, long)}  with message queue selector specified.
-     *
-     * @param msg request message to send
-     * @param selector message queue selector, through which we get target message queue to deliver message to.
-     * @param arg argument to work along with message queue selector.
-     * @param timeout timeout of request.
-     * @return reply message
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws RequestTimeoutException if request timeout.
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
      */
     @Override
     public Message request(final Message msg, final MessageQueueSelector selector, final Object arg,
-        final long timeout) throws MQClientException, RemotingException, MQBrokerException,
-        InterruptedException, RequestTimeoutException {
+                           final long timeout) throws MQClientException, RemotingException, MQBrokerException,
+            InterruptedException, RequestTimeoutException {
         msg.setTopic(withNamespace(msg.getTopic()));
         return this.defaultMQProducerImpl.request(msg, selector, arg, timeout);
     }
 
     /**
-     * Same to {@link #request(Message, RequestCallback, long)} with target message selector specified.
+     * 发送异步消息
+     * 消息按照MessageQueueSelector消息队列选择器规则分发到指定消息队列并指定超时时间
+     * 异步消息通过{@link SendCallback}处理broker回调，通知消息是否成功发送
+     * 同一个订单消息会发送到同一个消息队列保证顺序消费
      *
-     * @param msg requst message to send
-     * @param selector message queue selector, through which we get target message queue to deliver message to.
-     * @param arg argument to work along with message queue selector.
-     * @param requestCallback callback to execute on request completion.
-     * @param timeout timeout of request.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws MQBrokerException if there is any broker error.
+     * @param msg          发送的消息
+     * @param selector     消息队列选择器
+     * @param arg          消息队列选择器参数
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public void send(Message msg, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
+            throws MQClientException, RemotingException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.send(msg, selector, arg, sendCallback);
+    }
+
+    /**
+     * 相对于{@link #send(Message, MessageQueueSelector, Object, SendCallback)}设置超时时间，
+     *
+     * @param msg          发送的消息
+     * @param selector     消息队列选择器
+     * @param arg          消息队列选择器参数
+     * @param sendCallback 处理broker回调，通知消息是否成功发送
+     * @param timeout      超时时间
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
+     */
+    @Override
+    public void send(Message msg, MessageQueueSelector selector, Object arg, SendCallback sendCallback, long timeout)
+            throws MQClientException, RemotingException, InterruptedException {
+        msg.setTopic(withNamespace(msg.getTopic()));
+        this.defaultMQProducerImpl.send(msg, selector, arg, sendCallback, timeout);
+    }
+
+
+    /**
+     * 相对于{@link #send(Message, MessageQueueSelector, Object, SendCallback, long)}请求采用了异步机制
+     *
+     * @param msg      发送的消息
+     * @param selector 消息队列选择器
+     * @param arg      消息队列选择器参数
+     * @param timeout  超时时间
+     * @return 回复消息
+     * @throws MQClientException       客户端异常
+     * @throws RemotingException       远端调用异常
+     * @throws MQBrokerException       broker异步
+     * @throws InterruptedException    线程中断异常
+     * @throws RequestTimeoutException 请求超时
      */
     @Override
     public void request(final Message msg, final MessageQueueSelector selector, final Object arg,
-        final RequestCallback requestCallback, final long timeout) throws MQClientException, RemotingException,
-        InterruptedException, MQBrokerException {
+                        final RequestCallback requestCallback, final long timeout) throws MQClientException, RemotingException,
+            InterruptedException, MQBrokerException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQProducerImpl.request(msg, selector, arg, requestCallback, timeout);
     }
 
     /**
-     * Same to {@link #request(Message, long)}  with target message queue specified in addition.
+     * 发送单向消息给指定消息队列
+     * 消息按照MessageQueueSelector消息队列选择器规则分发到指定消息队列并指定超时时间
+     * 单向消息不需要broker响应是一种不可靠的消息
      *
-     * @param msg request message to send
-     * @param mq target message queue.
-     * @param timeout request timeout
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws RequestTimeoutException if request timeout.
-     */
-    @Override
-    public Message request(final Message msg, final MessageQueue mq, final long timeout)
-        throws MQClientException, RemotingException, MQBrokerException, InterruptedException, RequestTimeoutException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        return this.defaultMQProducerImpl.request(msg, mq, timeout);
-    }
-
-    /**
-     * Same to {@link #request(Message, RequestCallback, long)} with target message queue specified.
-     *
-     * @param msg request message to send
-     * @param mq target message queue.
-     * @param requestCallback callback to execute on request completion.
-     * @param timeout timeout of request.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws MQBrokerException if there is any broker error.
-     */
-    @Override
-    public void request(final Message msg, final MessageQueue mq, final RequestCallback requestCallback, long timeout)
-        throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
-        msg.setTopic(withNamespace(msg.getTopic()));
-        this.defaultMQProducerImpl.request(msg, mq, requestCallback, timeout);
-    }
-
-    /**
-     * Same to {@link #sendOneway(Message)} with message queue selector specified.
-     *
-     * @param msg Message to send.
-     * @param selector Message queue selector, through which to determine target message queue to deliver message
-     * @param arg Argument used along with message queue selector.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param msg      发送的消息
+     * @param selector 消息队列选择器
+     * @param arg      消息队列选择器参数
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public void sendOneway(Message msg, MessageQueueSelector selector, Object arg)
-        throws MQClientException, RemotingException, InterruptedException {
+            throws MQClientException, RemotingException, InterruptedException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQProducerImpl.sendOneway(msg, selector, arg);
     }
 
+
+    /*********************  事务消息接口开始   *********************/
+
     /**
-     * This method is to send transactional messages.
+     * 发送事务消息（已经取消使用TransactionMQProducer）
      *
-     * @param msg Transactional message to send.
-     * @param tranExecuter local transaction executor.
-     * @param arg Argument used along with local transaction executor.
-     * @return Transaction result.
-     * @throws MQClientException if there is any client error.
+     * @param msg          事务消息
+     * @param tranExecuter 本地交易执行者。
+     * @param arg          本地交易执行者参数
+     * @return 事务结果
+     * @throws MQClientException 客户端异常
      */
     @Override
     public TransactionSendResult sendMessageInTransaction(Message msg, LocalTransactionExecuter tranExecuter,
-        final Object arg)
-        throws MQClientException {
+                                                          final Object arg)
+            throws MQClientException {
         throw new RuntimeException("sendMessageInTransaction not implement, please use TransactionMQProducer class");
     }
 
     /**
-     * This method is used to send transactional messages.
+     * 发送事务消息（已经取消使用TransactionMQProducer）
      *
-     * @param msg Transactional message to send.
-     * @param arg Argument used along with local transaction executor.
-     * @return Transaction result.
+     * @param msg 事务消息
+     * @param arg 本地交易执行者参数
+     * @return 事务结果
      * @throws MQClientException
      */
     @Override
     public TransactionSendResult sendMessageInTransaction(Message msg,
-        Object arg) throws MQClientException {
+                                                          Object arg) throws MQClientException {
         throw new RuntimeException("sendMessageInTransaction not implement, please use TransactionMQProducer class");
     }
 
+
+    /*********************  MQAdmin接口实现  *********************/
+
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 创建Topic
      *
-     * @param key accesskey
-     * @param newTopic topic name
-     * @param queueNum topic's queue number
-     * @throws MQClientException if there is any client error.
+     * @param key      accesskey
+     * @param newTopic topic 名称
+     * @param queueNum topic queue(队列) number（数量）
      */
     @Deprecated
     @Override
@@ -755,14 +776,12 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Create a topic on broker. This method will be removed in a certain version after April 5, 2020, so please do not
-     * use this method.
+     * 创建Topic
      *
-     * @param key accesskey
-     * @param newTopic topic name
-     * @param queueNum topic's queue number
-     * @param topicSysFlag topic system flag
-     * @throws MQClientException if there is any client error.
+     * @param key          accesskey
+     * @param newTopic     topic 名称
+     * @param queueNum     topic queue(队列) number（数量）
+     * @param topicSysFlag topic 系统标识
      */
     @Deprecated
     @Override
@@ -771,12 +790,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Search consume queue offset of the given time stamp.
+     * 根据某个时间（以毫秒为单位）获取消息队列偏移量<br> 由于更多的IO开销，请谨慎致电
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.SEARCH_OFFSET_BY_TIMESTAMP
      *
-     * @param mq Instance of MessageQueue
-     * @param timestamp from when in milliseconds.
-     * @return Consume queue offset.
-     * @throws MQClientException if there is any client error.
+     * @param mq        消息队列
+     * @param timestamp
+     * @return offset
      */
     @Override
     public long searchOffset(MessageQueue mq, long timestamp) throws MQClientException {
@@ -784,13 +804,12 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Query maximum offset of the given message queue.
+     * 获取指定消息队列最大逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MAX_OFFSET
      *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param mq Instance of MessageQueue
-     * @return maximum offset of the given consume queue.
-     * @throws MQClientException if there is any client error.
+     * @param mq 消息队列
+     * @return 最大偏移
      */
     @Deprecated
     @Override
@@ -799,13 +818,12 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Query minimum offset of the given message queue.
+     * 获取指定消息队列最小逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MIN_OFFSET
      *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param mq Instance of MessageQueue
-     * @return minimum offset of the given message queue.
-     * @throws MQClientException if there is any client error.
+     * @param mq 消息队列
+     * @return 最小偏移
      */
     @Deprecated
     @Override
@@ -814,13 +832,10 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Query earliest message store time.
+     * 获取指定消息队最早的存储消息时间
      *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param mq Instance of MessageQueue
-     * @return earliest message store time.
-     * @throws MQClientException if there is any client error.
+     * @param mq 消息队列
+     * @return 最早的存储消息时间
      */
     @Deprecated
     @Override
@@ -829,62 +844,44 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
-     * Query message of the given offset message ID.
+     * 根据消息ID查询消息
      *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param offsetMsgId message id
-     * @return Message specified.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * @param offsetMsgId 消息id
+     * @return message
      */
     @Deprecated
     @Override
     public MessageExt viewMessage(
-        String offsetMsgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+            String offsetMsgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         return this.defaultMQProducerImpl.viewMessage(offsetMsgId);
     }
 
     /**
-     * Query message by key.
+     * 根据条件查询消息（条件包括指定topic+指定消息key+时间范围）的消息
      *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param topic message topic
-     * @param key message key index word
-     * @param maxNum max message number
-     * @param begin from when
-     * @param end to when
-     * @return QueryResult instance contains matched messages.
-     * @throws MQClientException if there is any client error.
-     * @throws InterruptedException if the thread is interrupted.
+     * @param topic  消息topic
+     * @param key    消息key
+     * @param maxNum 返回满足消息的最大数量
+     * @param begin  查询消息产生时间开始
+     * @param end    查询消息产生时间结束
+     * @return Instance of QueryResult
      */
     @Deprecated
     @Override
     public QueryResult queryMessage(String topic, String key, int maxNum, long begin, long end)
-        throws MQClientException, InterruptedException {
+            throws MQClientException, InterruptedException {
         return this.defaultMQProducerImpl.queryMessage(withNamespace(topic), key, maxNum, begin, end);
     }
 
     /**
-     * Query message of the given message ID.
-     *
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     *
-     * @param topic Topic
-     * @param msgId Message ID
-     * @return Message specified.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws MQClientException if there is any client error.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
+     * 根据消息ID查询消息
+     * 1 优先通过消息ID查询消息
+     * 2 如果1查询不到根据topic+消息key(key=msgId)查询消息
      */
     @Deprecated
     @Override
     public MessageExt viewMessage(String topic,
-        String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+                                  String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         try {
             MessageId oldMsgId = MessageDecoder.decodeMessageId(msgId);
             return this.viewMessage(msgId);
@@ -893,27 +890,72 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         return this.defaultMQProducerImpl.queryMessageByUniqKey(withNamespace(topic), msgId);
     }
 
+    /*********************  批量消息接口  *********************/
+
+    /**
+     * 批量发送消息
+     *
+     * @param msgs 消息集合
+     * @return 发送结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远程调用异常
+     * @throws MQBrokerException    Broker异常
+     * @throws InterruptedException 中断异常
+     */
     @Override
     public SendResult send(
-        Collection<Message> msgs) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            Collection<Message> msgs) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         return this.defaultMQProducerImpl.send(batch(msgs));
     }
 
+    /**
+     * 相对于{@link #send(Collection)}设置超时时间，
+     *
+     * @param msgs    消息集合
+     * @param timeout 超时时间
+     * @return
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远程调用异常
+     * @throws InterruptedException 中断异常
+     */
     @Override
     public SendResult send(Collection<Message> msgs,
-        long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+                           long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         return this.defaultMQProducerImpl.send(batch(msgs), timeout);
     }
 
+    /**
+     * 批量发送消息到指定消息队列
+     *
+     * @param msgs         消息集合
+     * @param messageQueue 消息队列
+     * @return 发送结果
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远程调用异常
+     * @throws MQBrokerException    Broker异常
+     * @throws InterruptedException 中断异常
+     */
     @Override
     public SendResult send(Collection<Message> msgs,
-        MessageQueue messageQueue) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+                           MessageQueue messageQueue) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         return this.defaultMQProducerImpl.send(batch(msgs), messageQueue);
     }
 
+    /**
+     * 相对于{@link #send(Collection, MessageQueue)}设置超时时间，
+     *
+     * @param msgs         消息集合
+     * @param messageQueue 消息队列
+     * @param timeout      超时时间
+     * @return
+     * @throws MQClientException    客户端异常
+     * @throws RemotingException    远程调用异常
+     * @throws MQBrokerException    Broker异常
+     * @throws InterruptedException 中断异常
+     */
     @Override
     public SendResult send(Collection<Message> msgs, MessageQueue messageQueue,
-        long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+                           long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         return this.defaultMQProducerImpl.send(batch(msgs), messageQueue, timeout);
     }
 

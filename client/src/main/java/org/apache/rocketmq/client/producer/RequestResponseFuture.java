@@ -21,6 +21,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.common.message.Message;
 
+/**
+ * 请求响应Future
+ */
 public class RequestResponseFuture {
     private final String correlationId;
     private final RequestCallback requestCallback;
