@@ -27,7 +27,7 @@ import org.apache.rocketmq.common.protocol.ResponseCode;
 import org.apache.rocketmq.common.topic.TopicValidator;
 
 /**
- * Common Validator
+ * 通用校验器
  */
 public class Validators {
     public static final String VALID_PATTERN_STR = "^[%|a-zA-Z0-9_-]+$";

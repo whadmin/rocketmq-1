@@ -30,36 +30,90 @@ import org.apache.rocketmq.remoting.netty.TlsSystemConfig;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
 
 /**
- * Client Common configuration
+ * 客户端通用配置类,描述Producer，Consume，Adminr通用配置信息
+ * ClientConfig (org.apache.rocketmq.client)
+ *     DefaultMQAdminExt (org.apache.rocketmq.tools.admin)
+ *     DefaultMQProducer (org.apache.rocketmq.client.producer)
+ *         TransactionMQProducer (org.apache.rocketmq.client.producer)
+ *     DefaultMQPullConsumer (org.apache.rocketmq.client.consumer)
+ *     DefaultMQPushConsumer (org.apache.rocketmq.client.consumer)
  */
 public class ClientConfig {
+
     public static final String SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY = "com.rocketmq.sendMessageWithVIPChannel";
+
+    /**
+     * namesrv地址
+     */
     private String namesrvAddr = NameServerAddressUtils.getNameServerAddresses();
+
+    /**
+     * 客户端本地IP地址
+     */
     private String clientIP = RemotingUtil.getLocalAddress();
+
+    /**
+     * 客户端名称
+     */
     private String instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
+
+    /**
+     * Java虚拟机的可用的处理器数量
+     */
     private int clientCallbackExecutorThreads = Runtime.getRuntime().availableProcessors();
+
+    /**
+     * 命名空间
+     */
     protected String namespace;
+
+    /**
+     * 存取频道
+     */
     protected AccessChannel accessChannel = AccessChannel.LOCAL;
 
     /**
-     * Pulling topic information interval from the named server
+     * 向NameServer拉取路由信息间隔
      */
     private int pollNameServerInterval = 1000 * 30;
+
     /**
-     * Heartbeat interval in microseconds with message broker
+     * 向broker发送心跳间隔
      */
     private int heartbeatBrokerInterval = 1000 * 30;
+
     /**
-     * Offset persistent interval for consumer
+     * 保持消费者补偿间隔
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
+
+
+
     private long pullTimeDelayMillsWhenException = 1000;
+
+    /**
+     * 是否单元化
+     */
     private boolean unitMode = false;
+
+    /**
+     * 单元化名称
+     */
     private String unitName;
+
+    /**
+     * 是否开启连接broker vip通道
+     */
     private boolean vipChannelEnabled = Boolean.parseBoolean(System.getProperty(SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY, "false"));
 
+    /**
+     * 用TLS（不知道干嘛）
+     */
     private boolean useTLS = TlsSystemConfig.tlsEnable;
 
+    /**
+     * 客户端语言
+     */
     private LanguageCode language = LanguageCode.JAVA;
 
     public String buildMQClientId() {
