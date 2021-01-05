@@ -1552,12 +1552,18 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             final SendCallback sendCallback,
             final long timeout
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        //检查检查当前服务状态是否启动成功
         this.makeSureStateOK();
+        //校验消息
         Validators.checkMessage(msg, this.defaultMQProducer);
+        //生成invokeID
         final long invokeID = random.nextLong();
+        //获取当前时间
         long beginTimestampFirst = System.currentTimeMillis();
+        //设置当前时间为上次执行时间【作用消息发送重试】
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
+        //从namesrv获取topic发送路由信息
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
@@ -1690,6 +1696,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 null).setResponseCode(ClientErrorCode.NOT_FOUND_TOPIC_EXCEPTION);
     }
 
+    /**
+     * 根据 Topic发送路由信息 选择一个消息队列
+     * @param tpInfo
+     * @param lastBrokerName
+     * @return
+     */
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
         return this.mqFaultStrategy.selectOneMessageQueue(tpInfo, lastBrokerName);
     }
@@ -1707,14 +1719,29 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     }
 
+    /**
+     * 获取topic发布的信息
+     * 1 从本地记录内存获取topic发布的信息
+     * 2 如果本地不存在从从namesrv获取topic发布的信息
+     * 3 为该topic创建一个TopicPublishInfo，添加到topicPublishInfoTable
+     * 4 通过MQ客户端实例对象获取topic路由信息并更新到其  TopicPublishInfo(发布的信息中)
+     *
+     * @param topic
+     * @return
+     */
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
+        //从本地记录内存获取topic发布的信息
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
+        //如果本地不存在从从namesrv获取topic发布的信息
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
+            //为该topic创建一个TopicPublishInfo，添加到topicPublishInfoTable
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
+            //通过MQ客户端实例对象获取topic路由信息并更新到其  TopicPublishInfo(发布的信息中)
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
+
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }
-
+        //获取topic发布的信息存在路由信息返回
         if (topicPublishInfo.isHaveTopicRouterInfo() || topicPublishInfo.ok()) {
             return topicPublishInfo;
         } else {
