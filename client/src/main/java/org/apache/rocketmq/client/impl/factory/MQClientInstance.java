@@ -84,78 +84,267 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * MQ客户端实例对象
+ * MQClientInstance 服务于如下4个角色 RPC远程调用客户端通用实现
+ * <p>
+ * DefaultMQAdminExtImpl            运维系统Admin
+ * DefaultMQProducerImpl            生成消息Producer
+ * DefaultMQPushConsumerImpl        推送消息Consumer
+ * DefaultMQPullConsumerImpl        拉取消息Consumer
+ * <p>
+ * MQClientInstance 通过 MQClientManager工厂对象创建，每一个JVM内部客户端ID相同的MQClientInstance是复用的
+ * <p>
+ * MQClientInstance 对象可以给同时作用于DefaultMQProducerImpl,DefaultMQPushConsumerImpl，DefaultMQPullConsumerImpl
+ */
 public class MQClientInstance {
+
+    /**
+     * 锁超时时间
+     */
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
+
+    /**
+     * 内部日志
+     */
     private final InternalLogger log = ClientLogger.getLog();
-    private final ClientConfig clientConfig;
-    private final int instanceIndex;
-    private final String clientId;
-    private final long bootTimestamp = System.currentTimeMillis();
-    private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
-    private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
-    private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
-    private final NettyClientConfig nettyClientConfig;
-    private final MQClientAPIImpl mQClientAPIImpl;
-    private final MQAdminImpl mQAdminImpl;
-    private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
+
+    /**
+     * Namesrv同步锁
+     */
     private final Lock lockNamesrv = new ReentrantLock();
+
+    /**
+     * Heartbeat同步锁
+     */
     private final Lock lockHeartbeat = new ReentrantLock();
+
+    /**
+     * 客户端ID
+     */
+    private final String clientId;
+
+    /**
+     * 客户端配置
+     */
+    private final ClientConfig clientConfig;
+
+    /**
+     * MQClientInstance坐标
+     * MQClientManager创建MQClientInstance计数累加
+     */
+    private final int instanceIndex;
+
+
+    /**
+     * MQClientInstance 启动时间戳
+     */
+    private final long bootTimestamp = System.currentTimeMillis();
+
+    /**
+     * 保存使用当前对象作为客户端的MQProducerInner ConcurrentMap集合  key:groupName-value:MQProducerInner
+     */
+    private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
+
+    /**
+     * 保存使用当前对象作为客户端的MQConsumerInner ConcurrentMap集合  key:groupName-value:MQConsumerInner
+     */
+    private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
+
+    /**
+     * 保存使用当前对象作为客户端的MQConsumerInner ConcurrentMap集合  key:groupName-value:MQConsumerInner
+     */
+    private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
+
+    /**
+     * NettyRPC客户端配置
+     */
+    private final NettyClientConfig nettyClientConfig;
+
+    /**
+     * MQ客户端实现
+     */
+    private final MQClientAPIImpl mQClientAPIImpl;
+
+    /**
+     * MQ管理实现
+     */
+    private final MQAdminImpl mQAdminImpl;
+
+    /**
+     * 从nameserver获取不同topic以及对应的路由信息 key:Topic-value:TopicRouteData
+     */
+    private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
+
+    /**
+     * 从nameserver获取不同的broker节点异以及对应节点内不同类型broker和地址端口
+     */
     private final ConcurrentMap<String/* Broker Name */, HashMap<Long/* brokerId */, String/* address */>> brokerAddrTable =
-        new ConcurrentHashMap<String, HashMap<Long, String>>();
+            new ConcurrentHashMap<String, HashMap<Long, String>>();
+
+    /**
+     * 从nameserver获取不同的broker节点异以及节点内broker实例地址和在线状态
+     */
     private final ConcurrentMap<String/* Broker Name */, HashMap<String/* address */, Integer>> brokerVersionTable =
-        new ConcurrentHashMap<String, HashMap<String, Integer>>();
+            new ConcurrentHashMap<String, HashMap<String, Integer>>();
+
+    /**
+     * 定时任务线程池
+     */
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
         @Override
         public Thread newThread(Runnable r) {
             return new Thread(r, "MQClientFactoryScheduledThread");
         }
     });
+
+    /**
+     * 处理服务端发送请求处理类
+     */
     private final ClientRemotingProcessor clientRemotingProcessor;
+
+    /**
+     * 拉取消息服务【为MQConsumerInner提供服务】
+     */
     private final PullMessageService pullMessageService;
+
+    /**
+     * 均衡消息服务【为MQConsumerInner提供服务】
+     */
     private final RebalanceService rebalanceService;
+
+    /**
+     * 内置DefaultMQProducer【为MQProducerInner提供服务】
+     */
     private final DefaultMQProducer defaultMQProducer;
+
+    /**
+     * Consumer统计服务【为MQConsumerInner提供服务】
+     */
     private final ConsumerStatsManager consumerStatsManager;
+
+    /**
+     * 记录累计发送心跳包的次数
+     */
     private final AtomicLong sendHeartbeatTimesTotal = new AtomicLong(0);
+
+    /**
+     * 服务状态
+     */
     private ServiceState serviceState = ServiceState.CREATE_JUST;
+
+    /**
+     * 随机数
+     */
     private Random random = new Random();
 
+    /**
+     * 构造MQClientInstance
+     *
+     * @param clientConfig  客户端配置
+     * @param instanceIndex 实例下标
+     * @param clientId      客户端id
+     */
     public MQClientInstance(ClientConfig clientConfig, int instanceIndex, String clientId) {
         this(clientConfig, instanceIndex, clientId, null);
     }
 
+    /**
+     * 构造DefaultMQProducerImpl设置DefaultMQProducer
+     *
+     * @param clientConfig  客户端配置
+     * @param instanceIndex 实例下标
+     * @param clientId      客户端id
+     * @param rpcHook       RPC钩子
+     */
     public MQClientInstance(ClientConfig clientConfig, int instanceIndex, String clientId, RPCHook rpcHook) {
+        //设置客户端配置
         this.clientConfig = clientConfig;
+        //设置MQClientInstance坐标
         this.instanceIndex = instanceIndex;
+
+        //创建NettyRPC客户端配置
         this.nettyClientConfig = new NettyClientConfig();
+        //设置NettyRPC客户端回调线程池中线程数量
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
+        //设置NettyRPC客户端TLS
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
+
+        //创建处理服务端发送请求处理类
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
+
+        //创建NettyRPC客户端
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
 
+        //客户端配置设置namesrvAddr地址
         if (this.clientConfig.getNamesrvAddr() != null) {
             this.mQClientAPIImpl.updateNameServerAddressList(this.clientConfig.getNamesrvAddr());
             log.info("user specified name server address: {}", this.clientConfig.getNamesrvAddr());
         }
-
+        //设置客户端ID
         this.clientId = clientId;
 
+        //创建MQ管理实现
         this.mQAdminImpl = new MQAdminImpl(this);
 
+        //创建拉取消息服务【为MQConsumerInner提供服务】
         this.pullMessageService = new PullMessageService(this);
 
+        //创建均衡消息服务【为MQConsumerInner提供服务】
         this.rebalanceService = new RebalanceService(this);
 
+        //创建内置DefaultMQProducer【为MQProducerInner提供服务】
         this.defaultMQProducer = new DefaultMQProducer(MixAll.CLIENT_INNER_PRODUCER_GROUP);
+        //重置客户端配置
         this.defaultMQProducer.resetClientConfig(clientConfig);
 
+        //创建Consumer统计服务【为MQConsumerInner提供服务】
         this.consumerStatsManager = new ConsumerStatsManager(this.scheduledExecutorService);
 
         log.info("Created a new client Instance, InstanceIndex:{}, ClientID:{}, ClientConfig:{}, ClientVersion:{}, SerializerType:{}",
-            this.instanceIndex,
-            this.clientId,
-            this.clientConfig,
-            MQVersion.getVersionDesc(MQVersion.CURRENT_VERSION), RemotingCommand.getSerializeTypeConfigInThisServer());
+                this.instanceIndex,
+                this.clientId,
+                this.clientConfig,
+                MQVersion.getVersionDesc(MQVersion.CURRENT_VERSION), RemotingCommand.getSerializeTypeConfigInThisServer());
     }
+
+    /**
+     * 启动MQClientInstance
+     */
+    public void start() throws MQClientException {
+
+        synchronized (this) {
+            switch (this.serviceState) {
+                case CREATE_JUST:
+                    //设置服务状态启动失败
+                    this.serviceState = ServiceState.START_FAILED;
+                    //如果未设置namsser地址获取获取远程http服务器上面nameSrv地址
+                    if (null == this.clientConfig.getNamesrvAddr()) {
+                        this.mQClientAPIImpl.fetchNameServerAddr();
+                    }
+                    //启动MQ客户端
+                    this.mQClientAPIImpl.start();
+                    // 启动定时任务
+                    this.startScheduledTask();
+                    // 启动拉取服务
+                    this.pullMessageService.start();
+                    // 启动均衡服务
+                    this.rebalanceService.start();
+                    // 启动默认defaultMQProducer
+                    this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
+                    // 打印日志
+                    log.info("the client factory [{}] start OK", this.clientId);
+                    // 设置服务状态已运行
+                    this.serviceState = ServiceState.RUNNING;
+                    break;
+                case START_FAILED:
+                    throw new MQClientException("The Factory object[" + this.getClientId() + "] has been created before, and failed.", null);
+                default:
+                    break;
+            }
+        }
+    }
+
 
     public static TopicPublishInfo topicRouteData2TopicPublishInfo(final String topic, final TopicRouteData route) {
         TopicPublishInfo info = new TopicPublishInfo();
@@ -221,36 +410,6 @@ public class MQClientInstance {
         return mqList;
     }
 
-    public void start() throws MQClientException {
-
-        synchronized (this) {
-            switch (this.serviceState) {
-                case CREATE_JUST:
-                    this.serviceState = ServiceState.START_FAILED;
-                    // If not specified,looking address from name server
-                    if (null == this.clientConfig.getNamesrvAddr()) {
-                        this.mQClientAPIImpl.fetchNameServerAddr();
-                    }
-                    // Start request-response channel
-                    this.mQClientAPIImpl.start();
-                    // Start various schedule tasks
-                    this.startScheduledTask();
-                    // Start pull service
-                    this.pullMessageService.start();
-                    // Start rebalance service
-                    this.rebalanceService.start();
-                    // Start push service
-                    this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
-                    log.info("the client factory [{}] start OK", this.clientId);
-                    this.serviceState = ServiceState.RUNNING;
-                    break;
-                case START_FAILED:
-                    throw new MQClientException("The Factory object[" + this.getClientId() + "] has been created before, and failed.", null);
-                default:
-                    break;
-            }
-        }
-    }
 
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
@@ -447,16 +606,16 @@ public class MQClientInstance {
                 if (addr != null) {
                     try {
                         this.getMQClientAPIImpl().checkClientInBroker(
-                            addr, entry.getKey(), this.clientId, subscriptionData, 3 * 1000
+                                addr, entry.getKey(), this.clientId, subscriptionData, 3 * 1000
                         );
                     } catch (Exception e) {
                         if (e instanceof MQClientException) {
                             throw (MQClientException) e;
                         } else {
                             throw new MQClientException("Check client in broker error, maybe because you use "
-                                + subscriptionData.getExpressionType() + " to filter message, but server has not been upgraded to support!"
-                                + "This error would not affect the launch of consumer, but may has impact on message receiving if you " +
-                                "have use the new features which are not supported by server, please check the log!", e);
+                                    + subscriptionData.getExpressionType() + " to filter message, but server has not been upgraded to support!"
+                                    + "This error would not affect the launch of consumer, but may has impact on message receiving if you " +
+                                    "have use the new features which are not supported by server, please check the log!", e);
                         }
                     }
                 }
@@ -464,7 +623,20 @@ public class MQClientInstance {
         }
     }
 
+    /*************************** 定时向broker发送心跳star  ***************************/
+    /**
+     * 1 定时获取MQClientInstance.brokerAddrTable【客户端连接broker地址】
+     * （MQClientInstance.brokerAddrTable 数据来源于定时从NamerServer获取所有使用当前对象作为客户端【MQConsumerInner,MQProducerInner】订阅关注topic对应的路由信息）
+     * <p>
+     * 2 获取使用当前对象作为客户端的MQConsumerInner，MQProducerInner构建HeartbeatData心跳数据包，发送给所有连接broker，更新brokerVersionTable
+     * <p>
+     * 3 上传所有使用当前对象作为客户端,满足如下条件的MQConsumerInner 到FilterServer
+     * <p>
+     * 1 满足将订阅方式为ConsumeType.CONSUME_PASSIVELY，
+     * 2 满足需要支持规则过滤的
+     */
     public void sendHeartbeatToAllBrokerWithLock() {
+        //获取心跳锁
         if (this.lockHeartbeat.tryLock()) {
             try {
                 this.sendHeartbeatToAllBroker();
@@ -472,11 +644,128 @@ public class MQClientInstance {
             } catch (final Exception e) {
                 log.error("sendHeartbeatToAllBroker exception", e);
             } finally {
+                //解心跳锁
                 this.lockHeartbeat.unlock();
             }
         } else {
+            //未获取锁打印日志
             log.warn("lock heartBeat, but failed.");
         }
+    }
+
+    /**
+     * 获取使用当前对象作为客户端的MQConsumerInner，MQProducerInner构建HeartbeatData心跳数据包，
+     * 发送给所有连接broker，更新brokerVersionTable
+     */
+    private void sendHeartbeatToAllBroker() {
+        final HeartbeatData heartbeatData = this.prepareHeartbeatData();
+        final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
+        final boolean consumerEmpty = heartbeatData.getConsumerDataSet().isEmpty();
+        if (producerEmpty && consumerEmpty) {
+            log.warn("sending heartbeat, but no consumer and no producer");
+            return;
+        }
+
+        if (!this.brokerAddrTable.isEmpty()) {
+            long times = this.sendHeartbeatTimesTotal.getAndIncrement();
+            Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
+            while (it.hasNext()) {
+                Entry<String, HashMap<Long, String>> entry = it.next();
+                String brokerName = entry.getKey();
+                HashMap<Long, String> oneTable = entry.getValue();
+                if (oneTable != null) {
+                    for (Map.Entry<Long, String> entry1 : oneTable.entrySet()) {
+                        Long id = entry1.getKey();
+                        String addr = entry1.getValue();
+                        if (addr != null) {
+                            if (consumerEmpty) {
+                                if (id != MixAll.MASTER_ID)
+                                    continue;
+                            }
+
+                            try {
+                                int version = this.mQClientAPIImpl.sendHearbeat(addr, heartbeatData, 3000);
+                                if (!this.brokerVersionTable.containsKey(brokerName)) {
+                                    this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));
+                                }
+                                this.brokerVersionTable.get(brokerName).put(addr, version);
+                                if (times % 20 == 0) {
+                                    log.info("send heart beat to broker[{} {} {}] success", brokerName, id, addr);
+                                    log.info(heartbeatData.toString());
+                                }
+                            } catch (Exception e) {
+                                if (this.isBrokerInNameServer(addr)) {
+                                    log.info("send heart beat to broker[{} {} {}] failed", brokerName, id, addr, e);
+                                } else {
+                                    log.info("send heart beat to broker[{} {} {}] exception, because the broker not up, forget it", brokerName,
+                                            id, addr, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void uploadFilterClassSource() {
+        Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();
+        while (it.hasNext()) {
+            Entry<String, MQConsumerInner> next = it.next();
+            MQConsumerInner consumer = next.getValue();
+            if (ConsumeType.CONSUME_PASSIVELY == consumer.consumeType()) {
+                Set<SubscriptionData> subscriptions = consumer.subscriptions();
+                for (SubscriptionData sub : subscriptions) {
+                    if (sub.isClassFilterMode() && sub.getFilterClassSource() != null) {
+                        final String consumerGroup = consumer.groupName();
+                        final String className = sub.getSubString();
+                        final String topic = sub.getTopic();
+                        final String filterClassSource = sub.getFilterClassSource();
+                        try {
+                            this.uploadFilterClassToAllFilterServer(consumerGroup, className, topic, filterClassSource);
+                        } catch (Exception e) {
+                            log.error("uploadFilterClassToAllFilterServer Exception", e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private HeartbeatData prepareHeartbeatData() {
+        HeartbeatData heartbeatData = new HeartbeatData();
+
+        // clientID
+        heartbeatData.setClientID(this.clientId);
+
+        // Consumer
+        for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
+            MQConsumerInner impl = entry.getValue();
+            if (impl != null) {
+                ConsumerData consumerData = new ConsumerData();
+                consumerData.setGroupName(impl.groupName());
+                consumerData.setConsumeType(impl.consumeType());
+                consumerData.setMessageModel(impl.messageModel());
+                consumerData.setConsumeFromWhere(impl.consumeFromWhere());
+                consumerData.getSubscriptionDataSet().addAll(impl.subscriptions());
+                consumerData.setUnitMode(impl.isUnitMode());
+
+                heartbeatData.getConsumerDataSet().add(consumerData);
+            }
+        }
+
+        // Producer
+        for (Map.Entry<String/* group */, MQProducerInner> entry : this.producerTable.entrySet()) {
+            MQProducerInner impl = entry.getValue();
+            if (impl != null) {
+                ProducerData producerData = new ProducerData();
+                producerData.setGroupName(entry.getKey());
+
+                heartbeatData.getProducerDataSet().add(producerData);
+            }
+        }
+
+        return heartbeatData;
     }
 
     private void persistAllConsumerOffset() {
@@ -527,90 +816,16 @@ public class MQClientInstance {
         return false;
     }
 
-    private void sendHeartbeatToAllBroker() {
-        final HeartbeatData heartbeatData = this.prepareHeartbeatData();
-        final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
-        final boolean consumerEmpty = heartbeatData.getConsumerDataSet().isEmpty();
-        if (producerEmpty && consumerEmpty) {
-            log.warn("sending heartbeat, but no consumer and no producer");
-            return;
-        }
-
-        if (!this.brokerAddrTable.isEmpty()) {
-            long times = this.sendHeartbeatTimesTotal.getAndIncrement();
-            Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
-            while (it.hasNext()) {
-                Entry<String, HashMap<Long, String>> entry = it.next();
-                String brokerName = entry.getKey();
-                HashMap<Long, String> oneTable = entry.getValue();
-                if (oneTable != null) {
-                    for (Map.Entry<Long, String> entry1 : oneTable.entrySet()) {
-                        Long id = entry1.getKey();
-                        String addr = entry1.getValue();
-                        if (addr != null) {
-                            if (consumerEmpty) {
-                                if (id != MixAll.MASTER_ID)
-                                    continue;
-                            }
-
-                            try {
-                                int version = this.mQClientAPIImpl.sendHearbeat(addr, heartbeatData, 3000);
-                                if (!this.brokerVersionTable.containsKey(brokerName)) {
-                                    this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));
-                                }
-                                this.brokerVersionTable.get(brokerName).put(addr, version);
-                                if (times % 20 == 0) {
-                                    log.info("send heart beat to broker[{} {} {}] success", brokerName, id, addr);
-                                    log.info(heartbeatData.toString());
-                                }
-                            } catch (Exception e) {
-                                if (this.isBrokerInNameServer(addr)) {
-                                    log.info("send heart beat to broker[{} {} {}] failed", brokerName, id, addr, e);
-                                } else {
-                                    log.info("send heart beat to broker[{} {} {}] exception, because the broker not up, forget it", brokerName,
-                                        id, addr, e);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private void uploadFilterClassSource() {
-        Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();
-        while (it.hasNext()) {
-            Entry<String, MQConsumerInner> next = it.next();
-            MQConsumerInner consumer = next.getValue();
-            if (ConsumeType.CONSUME_PASSIVELY == consumer.consumeType()) {
-                Set<SubscriptionData> subscriptions = consumer.subscriptions();
-                for (SubscriptionData sub : subscriptions) {
-                    if (sub.isClassFilterMode() && sub.getFilterClassSource() != null) {
-                        final String consumerGroup = consumer.groupName();
-                        final String className = sub.getSubString();
-                        final String topic = sub.getTopic();
-                        final String filterClassSource = sub.getFilterClassSource();
-                        try {
-                            this.uploadFilterClassToAllFilterServer(consumerGroup, className, topic, filterClassSource);
-                        } catch (Exception e) {
-                            log.error("uploadFilterClassToAllFilterServer Exception", e);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     public boolean updateTopicRouteInfoFromNameServer(final String topic, boolean isDefault,
-        DefaultMQProducer defaultMQProducer) {
+                                                      DefaultMQProducer defaultMQProducer) {
         try {
             if (this.lockNamesrv.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     TopicRouteData topicRouteData;
                     if (isDefault && defaultMQProducer != null) {
                         topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
-                            1000 * 3);
+                                1000 * 3);
                         if (topicRouteData != null) {
                             for (QueueData data : topicRouteData.getQueueDatas()) {
                                 int queueNums = Math.min(defaultMQProducer.getDefaultTopicQueueNums(), data.getReadQueueNums());
@@ -690,41 +905,6 @@ public class MQClientInstance {
         return false;
     }
 
-    private HeartbeatData prepareHeartbeatData() {
-        HeartbeatData heartbeatData = new HeartbeatData();
-
-        // clientID
-        heartbeatData.setClientID(this.clientId);
-
-        // Consumer
-        for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
-            MQConsumerInner impl = entry.getValue();
-            if (impl != null) {
-                ConsumerData consumerData = new ConsumerData();
-                consumerData.setGroupName(impl.groupName());
-                consumerData.setConsumeType(impl.consumeType());
-                consumerData.setMessageModel(impl.messageModel());
-                consumerData.setConsumeFromWhere(impl.consumeFromWhere());
-                consumerData.getSubscriptionDataSet().addAll(impl.subscriptions());
-                consumerData.setUnitMode(impl.isUnitMode());
-
-                heartbeatData.getConsumerDataSet().add(consumerData);
-            }
-        }
-
-        // Producer
-        for (Map.Entry<String/* group */, MQProducerInner> entry : this.producerTable.entrySet()) {
-            MQProducerInner impl = entry.getValue();
-            if (impl != null) {
-                ProducerData producerData = new ProducerData();
-                producerData.setGroupName(entry.getKey());
-
-                heartbeatData.getProducerDataSet().add(producerData);
-            }
-        }
-
-        return heartbeatData;
-    }
 
     private boolean isBrokerInNameServer(final String brokerAddr) {
         Iterator<Entry<String, TopicRouteData>> it = this.topicRouteTable.entrySet().iterator();
@@ -747,8 +927,8 @@ public class MQClientInstance {
      */
     @Deprecated
     private void uploadFilterClassToAllFilterServer(final String consumerGroup, final String fullClassName,
-        final String topic,
-        final String filterClassSource) throws UnsupportedEncodingException {
+                                                    final String topic,
+                                                    final String filterClassSource) throws UnsupportedEncodingException {
         byte[] classBody = null;
         int classCRC = 0;
         try {
@@ -756,13 +936,13 @@ public class MQClientInstance {
             classCRC = UtilAll.crc32(classBody);
         } catch (Exception e1) {
             log.warn("uploadFilterClassToAllFilterServer Exception, ClassName: {} {}",
-                fullClassName,
-                RemotingHelper.exceptionSimpleDesc(e1));
+                    fullClassName,
+                    RemotingHelper.exceptionSimpleDesc(e1));
         }
 
         TopicRouteData topicRouteData = this.topicRouteTable.get(topic);
         if (topicRouteData != null
-            && topicRouteData.getFilterServerTable() != null && !topicRouteData.getFilterServerTable().isEmpty()) {
+                && topicRouteData.getFilterServerTable() != null && !topicRouteData.getFilterServerTable().isEmpty()) {
             Iterator<Entry<String, List<String>>> it = topicRouteData.getFilterServerTable().entrySet().iterator();
             while (it.hasNext()) {
                 Entry<String, List<String>> next = it.next();
@@ -770,10 +950,10 @@ public class MQClientInstance {
                 for (final String fsAddr : value) {
                     try {
                         this.mQClientAPIImpl.registerMessageFilterClass(fsAddr, consumerGroup, topic, fullClassName, classCRC, classBody,
-                            5000);
+                                5000);
 
                         log.info("register message class filter to {} OK, ConsumerGroup: {} Topic: {} ClassName: {}", fsAddr, consumerGroup,
-                            topic, fullClassName);
+                                topic, fullClassName);
 
                     } catch (Exception e) {
                         log.error("uploadFilterClassToAllFilterServer Exception", e);
@@ -782,7 +962,7 @@ public class MQClientInstance {
             }
         } else {
             log.warn("register message class filter failed, because no filter server, ConsumerGroup: {} Topic: {} ClassName: {}",
-                consumerGroup, topic, fullClassName);
+                    consumerGroup, topic, fullClassName);
         }
     }
 
@@ -1029,9 +1209,9 @@ public class MQClientInstance {
     }
 
     public FindBrokerResult findBrokerAddressInSubscribe(
-        final String brokerName,
-        final long brokerId,
-        final boolean onlyThisBroker
+            final String brokerName,
+            final long brokerId,
+            final boolean onlyThisBroker
     ) {
         String brokerAddr = null;
         boolean slave = false;
@@ -1194,8 +1374,8 @@ public class MQClientInstance {
     }
 
     public ConsumeMessageDirectlyResult consumeMessageDirectly(final MessageExt msg,
-        final String consumerGroup,
-        final String brokerName) {
+                                                               final String consumerGroup,
+                                                               final String brokerName) {
         MQConsumerInner mqConsumerInner = this.consumerTable.get(consumerGroup);
         if (null != mqConsumerInner) {
             DefaultMQPushConsumerImpl consumer = (DefaultMQPushConsumerImpl) mqConsumerInner;
@@ -1225,7 +1405,7 @@ public class MQClientInstance {
         consumerRunningInfo.getProperties().put(ConsumerRunningInfo.PROP_NAMESERVER_ADDR, nsAddr);
         consumerRunningInfo.getProperties().put(ConsumerRunningInfo.PROP_CONSUME_TYPE, mqConsumerInner.consumeType().name());
         consumerRunningInfo.getProperties().put(ConsumerRunningInfo.PROP_CLIENT_VERSION,
-            MQVersion.getVersionDesc(MQVersion.CURRENT_VERSION));
+                MQVersion.getVersionDesc(MQVersion.CURRENT_VERSION));
 
         return consumerRunningInfo;
     }

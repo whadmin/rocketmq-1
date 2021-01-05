@@ -19,6 +19,7 @@ package org.apache.rocketmq.client;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.UtilAll;
@@ -61,8 +62,8 @@ public class Validators {
 
         if (!regularExpressionMatcher(group, PATTERN)) {
             throw new MQClientException(String.format(
-                "the specified group[%s] contains illegal characters, allowing only %s", group,
-                VALID_PATTERN_STR), null);
+                    "the specified group[%s] contains illegal characters, allowing only %s", group,
+                    VALID_PATTERN_STR), null);
         }
 
     }
@@ -79,7 +80,7 @@ public class Validators {
     }
 
     public static void checkMessage(Message msg, DefaultMQProducer defaultMQProducer)
-        throws MQClientException {
+            throws MQClientException {
         if (null == msg) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL, "the message is null");
         }
@@ -98,10 +99,16 @@ public class Validators {
 
         if (msg.getBody().length > defaultMQProducer.getMaxMessageSize()) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL,
-                "the message body size over max value, MAX: " + defaultMQProducer.getMaxMessageSize());
+                    "the message body size over max value, MAX: " + defaultMQProducer.getMaxMessageSize());
         }
     }
 
+    /**
+     * 校验topic名称
+     *
+     * @param topic 校验topic名称
+     * @throws MQClientException
+     */
     public static void checkTopic(String topic) throws MQClientException {
         if (UtilAll.isBlank(topic)) {
             throw new MQClientException("The specified topic is blank", null);
@@ -109,13 +116,13 @@ public class Validators {
 
         if (!regularExpressionMatcher(topic, PATTERN)) {
             throw new MQClientException(String.format(
-                "The specified topic[%s] contains illegal characters, allowing only %s", topic,
-                VALID_PATTERN_STR), null);
+                    "The specified topic[%s] contains illegal characters, allowing only %s", topic,
+                    VALID_PATTERN_STR), null);
         }
 
         if (topic.length() > TOPIC_MAX_LENGTH) {
             throw new MQClientException(
-                String.format("The specified topic is longer than topic max length %d.", TOPIC_MAX_LENGTH), null);
+                    String.format("The specified topic is longer than topic max length %d.", TOPIC_MAX_LENGTH), null);
         }
     }
 
