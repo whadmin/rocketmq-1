@@ -16,10 +16,29 @@
  */
 package org.apache.rocketmq.client.hook;
 
+/**
+ * 发送消息前后回调
+ */
 public interface SendMessageHook {
+
+    /**
+     * hook名称
+     *
+     * @return
+     */
     String hookName();
 
+    /**
+     * 发送消息前回调
+     *
+     * @param context
+     */
     void sendMessageBefore(final SendMessageContext context);
 
+    /**
+     * 发送消息后回调
+     *
+     * @param context
+     */
     void sendMessageAfter(final SendMessageContext context);
 }

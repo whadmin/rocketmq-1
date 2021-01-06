@@ -256,6 +256,7 @@ public class MQClientAPIImpl {
 
     /**
      * 通过寻址NameServer地址服务回去nameSrv地址
+     *
      * @return NameServer地址
      */
     public String fetchNameServerAddr() {
@@ -283,6 +284,7 @@ public class MQClientAPIImpl {
 
     /**
      * 更新remotingClient客户端内部配置NameServer地址
+     *
      * @param addrs
      */
     public void updateNameServerAddressList(final String addrs) {
@@ -311,7 +313,6 @@ public class MQClientAPIImpl {
     public void shutdown() {
         this.remotingClient.shutdown();
     }
-
 
 
     public void createSubscriptionGroup(final String addr, final SubscriptionGroupConfig config,
@@ -489,6 +490,21 @@ public class MQClientAPIImpl {
 
     }
 
+    /**
+     * 发送消息
+     *
+     * @param addr              broker地址
+     * @param brokerName        broker节点名称
+     * @param msg               发送消息
+     * @param requestHeader     发送消息请求命令头
+     * @param timeoutMillis     超时时间
+     * @param communicationMode 发送消息模式
+     * @param context           发送消息上下文
+     * @param producer          发送消息核心实现
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     public SendResult sendMessage(
             final String addr,
             final String brokerName,
@@ -499,9 +515,30 @@ public class MQClientAPIImpl {
             final SendMessageContext context,
             final DefaultMQProducerImpl producer
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        //发送消息统一路口
         return sendMessage(addr, brokerName, msg, requestHeader, timeoutMillis, communicationMode, null, null, null, 0, context, producer);
     }
 
+    /**
+     * 发送消息统一路口（单向，同步，异步）
+     *
+     * @param addr                     broker地址
+     * @param brokerName               broker节点名称
+     * @param msg                      发送消息
+     * @param requestHeader            发送消息请求命令头
+     * @param timeoutMillis            超时时间
+     * @param communicationMode        发送消息模式
+     * @param sendCallback             异步发送消息回调，通知消息是否成功发送
+     * @param topicPublishInfo         发送topic发布消息
+     * @param instance                 MQ客户端实例对象
+     * @param retryTimesWhenSendFailed 异步消息失败最大重试次数。
+     * @param context                  发送消息上下文
+     * @param producer                 发送消息核心实现
+     * @return 发送消息结果
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     public SendResult sendMessage(
             final String addr,
             final String brokerName,
@@ -516,10 +553,15 @@ public class MQClientAPIImpl {
             final SendMessageContext context,
             final DefaultMQProducerImpl producer
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        //记录当前方法开始时间
         long beginStartTime = System.currentTimeMillis();
+        //记录发送消息请求命令
         RemotingCommand request = null;
+        //获取消息类型（判断是否是回复消息（不知道干嘛））
         String msgType = msg.getProperty(MessageConst.PROPERTY_MESSAGE_TYPE);
         boolean isReply = msgType != null && msgType.equals(MixAll.REPLY_MESSAGE_FLAG);
+
+        //根据是否是回复消息创建不同请求命令
         if (isReply) {
             if (sendSmartMsg) {
                 SendMessageRequestHeaderV2 requestHeaderV2 = SendMessageRequestHeaderV2.createSendMessageRequestHeaderV2(requestHeader);
@@ -535,26 +577,36 @@ public class MQClientAPIImpl {
                 request = RemotingCommand.createRequestCommand(RequestCode.SEND_MESSAGE, requestHeader);
             }
         }
+        //设置消息body
         request.setBody(msg.getBody());
 
+        //判断发送消息模式
         switch (communicationMode) {
+            //单向
             case ONEWAY:
+                //发送单向消息
                 this.remotingClient.invokeOneway(addr, request, timeoutMillis);
                 return null;
+            //异步
             case ASYNC:
+                //判断当前方法操作是否超时
                 final AtomicInteger times = new AtomicInteger();
                 long costTimeAsync = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTimeAsync) {
                     throw new RemotingTooMuchRequestException("sendMessage call timeout");
                 }
+                //发送异步消息
                 this.sendMessageAsync(addr, brokerName, msg, timeoutMillis - costTimeAsync, request, sendCallback, topicPublishInfo, instance,
                         retryTimesWhenSendFailed, times, context, producer);
                 return null;
+            //同步
             case SYNC:
+                //判断当前方法操作是否超时
                 long costTimeSync = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTimeSync) {
                     throw new RemotingTooMuchRequestException("sendMessage call timeout");
                 }
+                //发送同步消息
                 return this.sendMessageSync(addr, brokerName, msg, timeoutMillis - costTimeSync, request);
             default:
                 assert false;
@@ -564,6 +616,19 @@ public class MQClientAPIImpl {
         return null;
     }
 
+    /**
+     * 发送同步消息
+     *
+     * @param addr          broker地址
+     * @param brokerName    broker节点名称
+     * @param msg           消息
+     * @param timeoutMillis 超时
+     * @param request       请求命令
+     * @return 发送消息结果
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     private SendResult sendMessageSync(
             final String addr,
             final String brokerName,
@@ -571,11 +636,30 @@ public class MQClientAPIImpl {
             final long timeoutMillis,
             final RemotingCommand request
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        //使用MQ远程调用客户端发送同步信息
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
+        //判断响应命令
         assert response != null;
+        //处理响应命令
         return this.processSendResponse(brokerName, msg, response);
     }
 
+    /**
+     * 发送异步消息
+     *
+     * @param addr             broker地址
+     * @param brokerName       broker节点名称
+     * @param msg              发送消息
+     * @param timeoutMillis    超时时间
+     * @param sendCallback     异步发送消息回调，通知消息是否成功发送
+     * @param topicPublishInfo 发送topic发布消息
+     * @param instance         MQ客户端实例对象
+     * @param times            异步消息失败最大重试次数。
+     * @param context          发送消息上下文
+     * @param producer         发送消息核心实现
+     * @throws InterruptedException 线程中断异常
+     * @throws RemotingException    远端调用异常
+     */
     private void sendMessageAsync(
             final String addr,
             final String brokerName,
@@ -590,15 +674,21 @@ public class MQClientAPIImpl {
             final SendMessageContext context,
             final DefaultMQProducerImpl producer
     ) throws InterruptedException, RemotingException {
+        //记录当前方法开始时间
         final long beginStartTime = System.currentTimeMillis();
+        //使用MQ远程调用客户端发送异步信息
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
+                //记录消息响应时间
                 long cost = System.currentTimeMillis() - beginStartTime;
+                //获取响应命令
                 RemotingCommand response = responseFuture.getResponseCommand();
-                if (null == sendCallback && response != null) {
 
+                //如果处理异步回调为null
+                if (null == sendCallback && response != null) {
                     try {
+                        //处理响应命令
                         SendResult sendResult = MQClientAPIImpl.this.processSendResponse(brokerName, msg, response);
                         if (context != null && sendResult != null) {
                             context.setSendResult(sendResult);
@@ -606,44 +696,59 @@ public class MQClientAPIImpl {
                         }
                     } catch (Throwable e) {
                     }
-
+                    //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                     producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), false);
                     return;
                 }
 
+                //如果处理异步不为null，获取响应命令
                 if (response != null) {
                     try {
+                        //处理响应命令
                         SendResult sendResult = MQClientAPIImpl.this.processSendResponse(brokerName, msg, response);
                         assert sendResult != null;
                         if (context != null) {
+                            //上下文设置发送消息结果
                             context.setSendResult(sendResult);
+                            //给sendMessageHookList列表中所有SendMessageHook设置hook.sendMessageAfter(context);
                             context.getProducer().executeSendMessageHookAfter(context);
                         }
-
+                        //异步发送消息回调
                         try {
                             sendCallback.onSuccess(sendResult);
                         } catch (Throwable e) {
                         }
-
+                        //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), false);
                     } catch (Exception e) {
+                        //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
+                        //处理处理异步消息异常
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                                 retryTimesWhenSendFailed, times, e, context, false, producer);
                     }
-                } else {
+                }
+                //如果处理异步不为null，没有获取响应命令
+                else {
+                    //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                     producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
                     if (!responseFuture.isSendRequestOK()) {
+                        //创建异常
                         MQClientException ex = new MQClientException("send request failed", responseFuture.getCause());
+                        //处理处理异步消息异常
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                                 retryTimesWhenSendFailed, times, ex, context, true, producer);
                     } else if (responseFuture.isTimeout()) {
+                        //创建异常
                         MQClientException ex = new MQClientException("wait response timeout " + responseFuture.getTimeoutMillis() + "ms",
                                 responseFuture.getCause());
+                        //处理处理异步消息异常
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                                 retryTimesWhenSendFailed, times, ex, context, true, producer);
                     } else {
+                        //创建异常
                         MQClientException ex = new MQClientException("unknow reseaon", responseFuture.getCause());
+                        //处理处理异步消息异常
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                                 retryTimesWhenSendFailed, times, ex, context, true, producer);
                     }
@@ -652,6 +757,9 @@ public class MQClientAPIImpl {
         });
     }
 
+    /**
+     * 处理异步消息异常,重试发送异步消息
+     */
     private void onExceptionImpl(final String brokerName,
                                  final Message msg,
                                  final long timeoutMillis,
@@ -667,67 +775,98 @@ public class MQClientAPIImpl {
                                  final DefaultMQProducerImpl producer
     ) {
         int tmp = curTimes.incrementAndGet();
+        //是否需要重试发送，且重试次数下雨最大值
         if (needRetry && tmp <= timesTotal) {
+            //记录重试borker节点
             String retryBrokerName = brokerName;//by default, it will send to the same broker
+
             if (topicPublishInfo != null) { //select one message queue accordingly, in order to determine which broker to send
                 MessageQueue mqChosen = producer.selectOneMessageQueue(topicPublishInfo, brokerName);
                 retryBrokerName = mqChosen.getBrokerName();
             }
+            //获取broker节点master实例地址
             String addr = instance.findBrokerAddressInPublish(retryBrokerName);
+            //打印日志
             log.info("async send msg by retry {} times. topic={}, brokerAddr={}, brokerName={}", tmp, msg.getTopic(), addr,
                     retryBrokerName);
             try {
+                //请求id+1
                 request.setOpaque(RemotingCommand.createNewRequestId());
+                //重新发送异步消息
                 sendMessageAsync(addr, retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance,
                         timesTotal, curTimes, context, producer);
             } catch (InterruptedException e1) {
+                //处理异步消息异常,重试发送异步消息
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                         context, false, producer);
             } catch (RemotingConnectException e1) {
+                //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                 producer.updateFaultItem(brokerName, 3000, true);
+                //处理异步消息异常,重试发送异步消息
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                         context, true, producer);
             } catch (RemotingTooMuchRequestException e1) {
+                //处理异步消息异常,重试发送异步消息
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                         context, false, producer);
             } catch (RemotingException e1) {
+                //记录每次发送消息brokerName的延时信息,用来优化选择MessageQueue策略
                 producer.updateFaultItem(brokerName, 3000, true);
+                //处理异步消息异常,重试发送异步消息
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                         context, true, producer);
             }
         } else {
-
             if (context != null) {
+                //设置异常
                 context.setException(e);
+                //给sendMessageHookList列表中所有SendMessageHook设置hook.sendMessageAfter(context);
                 context.getProducer().executeSendMessageHookAfter(context);
             }
-
             try {
+                //回调异常处理
                 sendCallback.onException(e);
             } catch (Exception ignored) {
             }
         }
     }
 
+    /**
+     * 处理响应命令
+     *
+     * @param brokerName broker节点名称
+     * @param msg        消息
+     * @param response   响应命令
+     * @return
+     * @throws MQBrokerException        broker异常
+     * @throws RemotingCommandException 远端调用异常
+     */
     private SendResult processSendResponse(
             final String brokerName,
             final Message msg,
             final RemotingCommand response
     ) throws MQBrokerException, RemotingCommandException {
         SendStatus sendStatus;
+        //判断发送消息响应结果code
         switch (response.getCode()) {
+            //发送消息master刷磁盘超时失败
             case ResponseCode.FLUSH_DISK_TIMEOUT: {
+                //设置发送消息状态master刷磁盘超时
                 sendStatus = SendStatus.FLUSH_DISK_TIMEOUT;
                 break;
             }
+            //发送消息slave刷磁盘超时失败
             case ResponseCode.FLUSH_SLAVE_TIMEOUT: {
+                //设置发送消息状态slave刷磁盘超时
                 sendStatus = SendStatus.FLUSH_SLAVE_TIMEOUT;
                 break;
             }
+            //发送消息slave不可用失败
             case ResponseCode.SLAVE_NOT_AVAILABLE: {
                 sendStatus = SendStatus.SLAVE_NOT_AVAILABLE;
                 break;
             }
+            //发送消息成功
             case ResponseCode.SUCCESS: {
                 sendStatus = SendStatus.SEND_OK;
                 break;
@@ -736,16 +875,16 @@ public class MQClientAPIImpl {
                 throw new MQBrokerException(response.getCode(), response.getRemark());
             }
         }
-
+        //解析发送消息响应头
         SendMessageResponseHeader responseHeader =
                 (SendMessageResponseHeader) response.decodeCommandCustomHeader(SendMessageResponseHeader.class);
 
-        //If namespace not null , reset Topic without namespace.
+        //解析获取原始消息topic
         String topic = msg.getTopic();
         if (StringUtils.isNotEmpty(this.clientConfig.getNamespace())) {
             topic = NamespaceUtil.withoutNamespace(topic, this.clientConfig.getNamespace());
         }
-
+        //构造消息队列
         MessageQueue messageQueue = new MessageQueue(topic, brokerName, responseHeader.getQueueId());
 
         String uniqMsgId = MessageClientIDSetter.getUniqID(msg);
@@ -756,21 +895,27 @@ public class MQClientAPIImpl {
             }
             uniqMsgId = sb.toString();
         }
+        //创建消息返回
         SendResult sendResult = new SendResult(sendStatus,
                 uniqMsgId,
                 responseHeader.getMsgId(), messageQueue, responseHeader.getQueueOffset());
+        //获取事务消息ID（如果是事务消息的话）
         sendResult.setTransactionId(responseHeader.getTransactionId());
+        //获取区域id
         String regionId = response.getExtFields().get(MessageConst.PROPERTY_MSG_REGION);
-        String traceOn = response.getExtFields().get(MessageConst.PROPERTY_TRACE_SWITCH);
         if (regionId == null || regionId.isEmpty()) {
             regionId = MixAll.DEFAULT_TRACE_REGION_ID;
         }
+        sendResult.setRegionId(regionId);
+
+        //获取是否开启消息轨迹（broker）
+        String traceOn = response.getExtFields().get(MessageConst.PROPERTY_TRACE_SWITCH);
         if (traceOn != null && traceOn.equals("false")) {
             sendResult.setTraceOn(false);
         } else {
             sendResult.setTraceOn(true);
         }
-        sendResult.setRegionId(regionId);
+        //返回消息结果
         return sendResult;
     }
 

@@ -60,7 +60,7 @@ public class SendResult {
     private String regionId;
 
     /**
-     * 是否开启消息轨迹
+     * broker是否开启消息轨迹
      */
     private boolean traceOn = true;
 
