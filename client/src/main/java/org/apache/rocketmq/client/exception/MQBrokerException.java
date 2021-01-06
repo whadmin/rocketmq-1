@@ -19,9 +19,18 @@ package org.apache.rocketmq.client.exception;
 import org.apache.rocketmq.common.UtilAll;
 import org.apache.rocketmq.common.help.FAQUrl;
 
+/**
+ * broker异常
+ */
 public class MQBrokerException extends Exception {
     private static final long serialVersionUID = 5975020272601250368L;
+    /**
+     * 返回编码
+     */
     private final int responseCode;
+    /**
+     * 返回消息
+     */
     private final String errorMessage;
 
     public MQBrokerException(int responseCode, String errorMessage) {

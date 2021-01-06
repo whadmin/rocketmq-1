@@ -19,9 +19,20 @@ package org.apache.rocketmq.client.exception;
 
 import org.apache.rocketmq.common.UtilAll;
 
+/**
+ * 请求超时异常
+ */
 public class RequestTimeoutException extends Exception {
+
     private static final long serialVersionUID = -5758410930844185841L;
+
+    /**
+     * 返回编码
+     */
     private int responseCode;
+    /**
+     * 返回消息
+     */
     private String errorMessage;
 
     public RequestTimeoutException(String errorMessage, Throwable cause) {
@@ -32,7 +43,7 @@ public class RequestTimeoutException extends Exception {
 
     public RequestTimeoutException(int responseCode, String errorMessage) {
         super("CODE: " + UtilAll.responseCode2String(responseCode) + "  DESC: "
-            + errorMessage);
+                + errorMessage);
         this.responseCode = responseCode;
         this.errorMessage = errorMessage;
     }
