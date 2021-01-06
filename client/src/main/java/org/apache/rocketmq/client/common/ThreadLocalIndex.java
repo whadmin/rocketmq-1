@@ -19,10 +19,18 @@ package org.apache.rocketmq.client.common;
 
 import java.util.Random;
 
+/**
+ * 本地线程计数器
+ */
 public class ThreadLocalIndex {
     private final ThreadLocal<Integer> threadLocalIndex = new ThreadLocal<Integer>();
     private final Random random = new Random();
 
+    /**
+     * 本地线程计数器+1
+     *
+     * @return
+     */
     public int getAndIncrement() {
         Integer index = this.threadLocalIndex.get();
         if (null == index) {
@@ -43,7 +51,7 @@ public class ThreadLocalIndex {
     @Override
     public String toString() {
         return "ThreadLocalIndex{" +
-            "threadLocalIndex=" + threadLocalIndex.get() +
-            '}';
+                "threadLocalIndex=" + threadLocalIndex.get() +
+                '}';
     }
 }
