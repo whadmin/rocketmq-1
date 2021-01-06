@@ -16,6 +16,9 @@
  */
 package org.apache.rocketmq.client.admin;
 
+/**
+ * MQAdmin内部扩展接口
+ */
 public interface MQAdminExtInner {
 
 }
