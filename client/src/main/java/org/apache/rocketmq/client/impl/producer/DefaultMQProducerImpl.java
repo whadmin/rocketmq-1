@@ -473,10 +473,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * 获取指定发送消息topic是否存在路由信息
+     * 如果topic本地和远程获取发布信息是否需要更新
+     * 通过客户端MQProducerInner
      *
-     * @param topic 发送消息topic
-     * @return 是否存在路由信息
+     * @param topic
+     * @return
      */
     @Override
     public boolean isPublishTopicNeedUpdate(String topic) {
@@ -485,7 +486,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * 更新发送消息topic和对应路由信息
+     * 更新发送消息topic和发布信息
      *
      * @param topic 发送消息topic
      * @param info  路由信息
@@ -501,7 +502,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * 获取所有发送消息topic和对应路由信息
+     * 获取所有发送消息topic和对发布信息
      */
     public ConcurrentMap<String, TopicPublishInfo> getTopicPublishInfoTable() {
         return topicPublishInfoTable;
@@ -1766,32 +1767,36 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * 获取topic发布的信息
-     * 1 从本地记录内存获取topic发布的信息
-     * 2 如果本地不存在从从namesrv获取topic发布的信息
-     * 3 为该topic创建一个TopicPublishInfo，添加到topicPublishInfoTable
-     * 4 通过MQ客户端实例对象获取topic路由信息并更新到其  TopicPublishInfo(发布的信息中)
+     * 获取topic TopicPublishInfo 发布的信息
+     * 1 从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
+     * 2 如果本地不存在从从namesrv获取topic发布的信息，创建一个 TopicPublishInfo发布信息，添加到本地topicPublishInfoTable
+     * 3 通过MQ客户端实例对象获取topic路由信息并更新发布信息
+     * 4 重新获取从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
+     * 5 如果获取topic发布的信息存在路由信息返回
+     * 6 通过MQ客户端实例对象获取默认topic="TBW102"路由信息并更新发布信息
+     * 7 重新获取从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
      *
      * @param topic
      * @return
      */
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
-        //从本地记录内存获取topic发布的信息
+        //1 从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
-        //如果本地不存在从从namesrv获取topic发布的信息
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
-            //为该topic创建一个TopicPublishInfo，添加到topicPublishInfoTable
+            //2 如果本地不存在从从namesrv获取topic发布的信息，创建一个 TopicPublishInfo发布信息，添加到本地topicPublishInfoTable
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
-            //通过MQ客户端实例对象获取topic路由信息并更新到其  TopicPublishInfo(发布的信息中)
+            //3 通过MQ客户端实例对象获取topic路由信息并更新发布信息
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
-
+            //4 重新获取从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }
-        //获取topic发布的信息存在路由信息返回
+        //5 获取topic发布的信息存在路由信息返回
         if (topicPublishInfo.isHaveTopicRouterInfo() || topicPublishInfo.ok()) {
             return topicPublishInfo;
         } else {
+            //6 通过MQ客户端实例对象获取默认topic="TBW102"路由信息并更新发布信息
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
+            //7 重新获取从本地topicPublishInfoTable 记录内存获取topic TopicPublishInfo发布的信息
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;
         }

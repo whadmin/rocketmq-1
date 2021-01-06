@@ -408,6 +408,11 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
         }
     }
 
+
+    /**
+     * 如果topic本地和远程获取路由信息是否需要更新
+     * 通过客户端MQConsumerInner配置判断
+     */
     @Override
     public boolean isSubscribeTopicNeedUpdate(String topic) {
         Map<String, SubscriptionData> subTable = this.rebalanceImpl.getSubscriptionInner();

@@ -17,25 +17,60 @@
 package org.apache.rocketmq.client.impl.producer;
 
 import java.util.Set;
+
 import org.apache.rocketmq.client.producer.TransactionCheckListener;
 import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.protocol.header.CheckTransactionStateRequestHeader;
 
 public interface MQProducerInner {
+
+    /**
+     * 获取所有发送消息topic
+     */
     Set<String> getPublishTopicList();
 
+    /**
+     * 如果topic本地和远程获取路由信息是否需要更新
+     * 通过客户端MQProducerInner
+     *
+     * @param topic
+     * @return
+     */
     boolean isPublishTopicNeedUpdate(final String topic);
 
+    /**
+     * 获取 TransactionCheckListener(已废弃)
+     */
     TransactionCheckListener checkListener();
+
+    /**
+     * 获取 TransactionListener (已废弃) 事务消息监听器
+     */
     TransactionListener getCheckListener();
 
+    /**
+     * 检查事务状态
+     *
+     * @param addr               地址
+     * @param msg                消息
+     * @param checkRequestHeader 消息头部
+     */
     void checkTransactionState(
-        final String addr,
-        final MessageExt msg,
-        final CheckTransactionStateRequestHeader checkRequestHeader);
+            final String addr,
+            final MessageExt msg,
+            final CheckTransactionStateRequestHeader checkRequestHeader);
 
+    /**
+     * 更新发送消息topic和发布信息
+     *
+     * @param topic 发送消息topic
+     * @param info  路由信息
+     */
     void updateTopicPublishInfo(final String topic, final TopicPublishInfo info);
 
+    /**
+     * 单元化
+     */
     boolean isUnitMode();
 }
