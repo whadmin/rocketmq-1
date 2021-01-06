@@ -21,14 +21,49 @@ import java.util.Map;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 消费消息钩子上下文
+ */
 public class ConsumeMessageContext {
+
+    /**
+     * 消费分组
+     */
     private String consumerGroup;
+
+    /**
+     * 消息消息列表
+     */
     private List<MessageExt> msgList;
+
+    /**
+     * 消息队列
+     */
     private MessageQueue mq;
+
+    /**
+     * 是否消费成功
+     */
     private boolean success;
+
+    /**
+     * 消费状态
+     */
     private String status;
+
+    /**
+     * 消息轨迹上下文
+     */
     private Object mqTraceContext;
+
+    /**
+     * 属性
+     */
     private Map<String, String> props;
+
+    /**
+     * 命名空间
+     */
     private String namespace;
 
     public String getConsumerGroup() {

@@ -17,6 +17,7 @@
 package org.apache.rocketmq.client.hook;
 
 import java.util.Map;
+
 import org.apache.rocketmq.client.impl.CommunicationMode;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -24,19 +25,74 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.message.MessageType;
 
+/**
+ * 发现消息钩子上下文
+ */
 public class SendMessageContext {
+
+    /**
+     * 生产者分组
+     */
     private String producerGroup;
+
+    /**
+     * 消息
+     */
     private Message message;
+
+    /**
+     * 消息队列
+     */
     private MessageQueue mq;
+
+    /**
+     * broker地址
+     */
     private String brokerAddr;
+
+    /**
+     * 生产消息时间
+     */
     private String bornHost;
+
+    /**
+     * 发送消息模式
+     */
     private CommunicationMode communicationMode;
+
+    /**
+     * 发送消息结果
+     */
     private SendResult sendResult;
+
+    /**
+     * 发送消息异常
+     */
     private Exception exception;
+
+    /**
+     * 发送消息消息轨迹上下文
+     */
     private Object mqTraceContext;
+
+    /**
+     * 属性
+     */
     private Map<String, String> props;
+
+    /**
+     * 生产消息
+     */
     private DefaultMQProducerImpl producer;
+
+    /**
+     * 消息类型
+     */
     private MessageType msgType = MessageType.Normal_Msg;
+
+    /**
+     * 命名空间
+     */
     private String namespace;
 
     public MessageType getMsgType() {

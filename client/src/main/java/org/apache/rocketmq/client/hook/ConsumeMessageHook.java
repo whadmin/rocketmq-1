@@ -16,10 +16,29 @@
  */
 package org.apache.rocketmq.client.hook;
 
+/**
+ * 消费消息钩子
+ */
 public interface ConsumeMessageHook {
+
+    /**
+     * 钩子名称
+     *
+     * @return
+     */
     String hookName();
 
+    /**
+     * 消费消息前操作
+     *
+     * @param context
+     */
     void consumeMessageBefore(final ConsumeMessageContext context);
 
+    /**
+     * 消息消息后操作
+     *
+     * @param context
+     */
     void consumeMessageAfter(final ConsumeMessageContext context);
 }

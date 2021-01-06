@@ -21,16 +21,59 @@ import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 发送消息前校验钩子上下文
+ */
 public class CheckForbiddenContext {
+
+    /**
+     * nameser地址
+     */
     private String nameSrvAddr;
+
+    /**
+     * 生产者分组
+     */
     private String group;
+
+    /**
+     * 消息
+     */
     private Message message;
+
+    /**
+     * 消息队列
+     */
     private MessageQueue mq;
+
+    /**
+     * 发送broker地址
+     */
     private String brokerAddr;
+
+    /**
+     * 发送消息模式
+     */
     private CommunicationMode communicationMode;
+
+    /**
+     * 发送消息结果
+     */
     private SendResult sendResult;
+
+    /**
+     * 异常
+     */
     private Exception exception;
+
+    /**
+     * 参数
+     */
     private Object arg;
+
+    /**
+     * 是否单元化
+     */
     private boolean unitMode = false;
 
     public String getGroup() {
@@ -116,8 +159,8 @@ public class CheckForbiddenContext {
     @Override
     public String toString() {
         return "SendMessageContext [nameSrvAddr=" + nameSrvAddr + ", group=" + group + ", message=" + message
-            + ", mq=" + mq + ", brokerAddr=" + brokerAddr + ", communicationMode=" + communicationMode
-            + ", sendResult=" + sendResult + ", exception=" + exception + ", unitMode=" + unitMode
-            + ", arg=" + arg + "]";
+                + ", mq=" + mq + ", brokerAddr=" + brokerAddr + ", communicationMode=" + communicationMode
+                + ", sendResult=" + sendResult + ", exception=" + exception + ", unitMode=" + unitMode
+                + ", arg=" + arg + "]";
     }
 }
