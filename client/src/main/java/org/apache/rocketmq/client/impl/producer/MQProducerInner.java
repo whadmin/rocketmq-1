@@ -23,6 +23,9 @@ import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.protocol.header.CheckTransactionStateRequestHeader;
 
+/**
+ * Producer 内部核心实现接口
+ */
 public interface MQProducerInner {
 
     /**
