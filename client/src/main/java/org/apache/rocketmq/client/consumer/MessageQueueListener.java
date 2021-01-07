@@ -17,17 +17,23 @@
 package org.apache.rocketmq.client.consumer;
 
 import java.util.Set;
+
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
- * A MessageQueueListener is implemented by the application and may be specified when a message queue changed
+ * 注册消息队列侦听器
+ * MessageQueueListener由应用程序实现
+ * 消费队列负载均衡分配给消息实例发送变更时候通知回调(Consumers实例加人或退出时)
  */
 public interface MessageQueueListener {
+
     /**
-     * @param topic message topic
-     * @param mqAll all queues in this message topic
-     * @param mqDivided collection of queues,assigned to the current consumer
+     * 消费队列变更时回调
+     *
+     * @param topic     消息topic
+     * @param mqAll     此消息主题中的所有队列
+     * @param mqDivided 分配给当前使用者消息队列
      */
     void messageQueueChanged(final String topic, final Set<MessageQueue> mqAll,
-        final Set<MessageQueue> mqDivided);
+                             final Set<MessageQueue> mqDivided);
 }

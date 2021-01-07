@@ -29,6 +29,7 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  * MQConsumer 接口
  */
 public interface MQConsumer extends MQAdmin {
+
     /**
      * 如果consumer消费消息失败，consumer将延迟消耗一些时间，将消息将被发送回broker，
      */

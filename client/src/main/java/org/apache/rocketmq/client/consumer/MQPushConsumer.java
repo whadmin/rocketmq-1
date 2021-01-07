@@ -22,89 +22,76 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQClientException;
 
 /**
- * Push consumer
+ * 推动消费者接口
  */
 public interface MQPushConsumer extends MQConsumer {
+
     /**
-     * Start the consumer
+     * 启动PushConsumer
      */
     void start() throws MQClientException;
 
     /**
-     * Shutdown the consumer
+     * 关闭PushConsumer
      */
     void shutdown();
 
     /**
-     * Register the message listener
+     * 注册消息监听器（已废弃）
      */
     @Deprecated
     void registerMessageListener(MessageListener messageListener);
 
+    /**
+     * 注册并发事件监听器
+     */
     void registerMessageListener(final MessageListenerConcurrently messageListener);
 
+    /**
+     * 注册顺序消息事件监听器
+     */
     void registerMessageListener(final MessageListenerOrderly messageListener);
 
     /**
-     * Subscribe some topic
+     * 基于topic订阅消息，消息过滤使用类模式（已废弃）
+     */
+    @Deprecated
+    void subscribe(final String topic, final String fullClassName,
+                   final String filterClassSource) throws MQClientException;
+
+    /**
+     * 基于topic订阅消息，消息过滤使用TAG过滤表达式类型
      *
-     * @param subExpression subscription expression.it only support or operation such as "tag1 || tag2 || tag3" <br> if
-     * null or * expression,meaning subscribe
-     * all
+     * @param subExpression 仅支持或操作，例如“ tag1 || tag2 || tag3”，如果为null或*表达式，则表示全部订阅。
      */
     void subscribe(final String topic, final String subExpression) throws MQClientException;
 
     /**
-     * This method will be removed in the version 5.0.0,because filterServer was removed,and method <code>subscribe(final String topic, final MessageSelector messageSelector)</code>
-     * is recommended.
+     * 基于topic订阅消息,消息过滤使用特定类型的消息选择器(支持TAG过滤，SLQ92过滤)
      *
-     * Subscribe some topic
-     *
-     * @param fullClassName full class name,must extend org.apache.rocketmq.common.filter. MessageFilter
-     * @param filterClassSource class source code,used UTF-8 file encoding,must be responsible for your code safety
-     */
-    @Deprecated
-    void subscribe(final String topic, final String fullClassName,
-        final String filterClassSource) throws MQClientException;
-
-    /**
-     * Subscribe some topic with selector.
-     * <p>
-     * This interface also has the ability of {@link #subscribe(String, String)},
-     * and, support other message selection, such as {@link org.apache.rocketmq.common.filter.ExpressionType#SQL92}.
-     * </p>
-     * <p/>
-     * <p>
-     * Choose Tag: {@link MessageSelector#byTag(java.lang.String)}
-     * </p>
-     * <p/>
-     * <p>
-     * Choose SQL92: {@link MessageSelector#bySql(java.lang.String)}
-     * </p>
-     *
-     * @param selector message selector({@link MessageSelector}), can be null.
+     * @param selector 消息选择器,如果为null不过滤消息
      */
     void subscribe(final String topic, final MessageSelector selector) throws MQClientException;
 
     /**
-     * Unsubscribe consumption some topic
+     * 取消指定topic消息订阅
      *
      * @param topic message topic
      */
     void unsubscribe(final String topic);
 
     /**
-     * Update the consumer thread pool size Dynamically
+     * 动态更新使用者线程池大小
      */
     void updateCorePoolSize(int corePoolSize);
 
     /**
-     * Suspend the consumption
+     * 暂停消费
      */
     void suspend();
 
     /**
-     * Resume the consumption
+     * 恢复消费
      */
     void resume();
 }

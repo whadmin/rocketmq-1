@@ -19,17 +19,26 @@ package org.apache.rocketmq.client.consumer.listener;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
- * Consumer concurrent consumption context
+ * 并发消费上下文
  */
 public class ConsumeConcurrentlyContext {
-    private final MessageQueue messageQueue;
+
     /**
-     * Message consume retry strategy<br>
-     * -1,no retry,put into DLQ directly<br>
-     * 0,broker control retry frequency<br>
-     * >0,client control retry frequency
+     * 消息队列
+     */
+    private final MessageQueue messageQueue;
+
+    /**
+     * 消息消费重试策略<br>
+     * -1，不重试，直接放入重试队列
+     * 0,重试，broker控制重试频率
+     * 0,重试，客户端控制重试频率
      */
     private int delayLevelWhenNextConsume = 0;
+
+    /**
+     * ack索引
+     */
     private int ackIndex = Integer.MAX_VALUE;
 
     public ConsumeConcurrentlyContext(MessageQueue messageQueue) {

@@ -17,8 +17,14 @@
 package org.apache.rocketmq.client.consumer;
 
 import java.util.Set;
+
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 指定topic消息队列变更监听器
+ * TopicMessageQueueChangeListener由应用程序实现
+ * 消费队列负载均衡分配给消息实例发送变更时候通知回调(Consumers实例加人或退出时)
+ */
 public interface TopicMessageQueueChangeListener {
     /**
      * This method will be invoked in the condition of queue numbers changed, These scenarios occur when the topic is

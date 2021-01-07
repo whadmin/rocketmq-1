@@ -17,24 +17,24 @@
 
 package org.apache.rocketmq.common.filter;
 
+/**
+ * 消息过滤表达类型
+ */
 public class ExpressionType {
 
     /**
-     * <ul>
-     * Keywords:
+     * SQL过滤
+     *
+     * 支撑的关键子
      * <li>{@code AND, OR, NOT, BETWEEN, IN, TRUE, FALSE, IS, NULL}</li>
-     * </ul>
-     * <p/>
-     * <ul>
-     * Data type:
+     *
+     * 支撑数据类型:
      * <li>Boolean, like: TRUE, FALSE</li>
      * <li>String, like: 'abc'</li>
      * <li>Decimal, like: 123</li>
      * <li>Float number, like: 3.1415</li>
-     * </ul>
-     * <p/>
-     * <ul>
-     * Grammar:
+     *
+     * 语法:
      * <li>{@code AND, OR}</li>
      * <li>{@code >, >=, <, <=, =}</li>
      * <li>{@code BETWEEN A AND B}, equals to {@code >=A AND <=B}</li>
@@ -42,19 +42,16 @@ public class ExpressionType {
      * <li>{@code IN ('a', 'b')}, equals to {@code ='a' OR ='b'}, this operation only support String type.</li>
      * <li>{@code IS NULL}, {@code IS NOT NULL}, check parameter whether is null, or not.</li>
      * <li>{@code =TRUE}, {@code =FALSE}, check parameter whether is true, or false.</li>
-     * </ul>
-     * <p/>
-     * <p>
-     * Example:
+     *
+     * 栗子:
      * (a > 10 AND a < 100) OR (b IS NOT NULL AND b=TRUE)
-     * </p>
      */
     public static final String SQL92 = "SQL92";
 
     /**
-     * Only support or operation such as
-     * "tag1 || tag2 || tag3", <br>
-     * If null or * expression,meaning subscribe all.
+     * TAG过滤
+     * 仅支持或操作，例如“ tag1 || tag2 || tag3”，
+     * 如果为null或*表达式，则表示全部订阅。
      */
     public static final String TAG = "TAG";
 

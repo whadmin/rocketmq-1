@@ -38,6 +38,7 @@ import org.apache.rocketmq.remoting.RPCHook;
  * DefaultLitePullConsumer} is recommend to use in the scenario of actively pulling messages.
  */
 public class MQPullConsumerScheduleService {
+
     private final InternalLogger log = ClientLogger.getLog();
     private final MessageQueueListener messageQueueListener = new MessageQueueListenerImpl();
     private final ConcurrentMap<MessageQueue, PullTaskImpl> taskTable =

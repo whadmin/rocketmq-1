@@ -17,10 +17,21 @@
 package org.apache.rocketmq.client.consumer;
 
 /**
- * Async message pulling interface
+ * 异步拉取消息回调
  */
 public interface PullCallback {
+
+    /**
+     * 异步拉取消成功回调
+     *
+     * @param pullResult 拉取消息结果
+     */
     void onSuccess(final PullResult pullResult);
 
+    /**
+     * 异步拉取消异常回调
+     *
+     * @param e 拉取消息异常
+     */
     void onException(final Throwable e);
 }
