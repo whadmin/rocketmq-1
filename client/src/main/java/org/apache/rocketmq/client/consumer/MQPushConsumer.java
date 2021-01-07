@@ -38,22 +38,32 @@ public interface MQPushConsumer extends MQConsumer {
 
     /**
      * 注册消息监听器（已废弃）
+     *
+     * @param messageListener 消息监听器
      */
     @Deprecated
     void registerMessageListener(MessageListener messageListener);
 
     /**
      * 注册并发事件监听器
+     *
+     * @param messageListener 并发消息监听器
      */
     void registerMessageListener(final MessageListenerConcurrently messageListener);
 
     /**
      * 注册顺序消息事件监听器
+     *
+     * @param messageListener 顺序消息事件监听器
      */
     void registerMessageListener(final MessageListenerOrderly messageListener);
 
     /**
      * 基于topic订阅消息，消息过滤使用类模式（已废弃）
+     *
+     * @param topic             消息topicc
+     * @param fullClassName     class名称
+     * @param filterClassSource class资源
      */
     @Deprecated
     void subscribe(final String topic, final String fullClassName,
@@ -62,26 +72,31 @@ public interface MQPushConsumer extends MQConsumer {
     /**
      * 基于topic订阅消息，消息过滤使用TAG过滤表达式类型
      *
-     * @param subExpression 仅支持或操作，例如“ tag1 || tag2 || tag3”，如果为null或*表达式，则表示全部订阅。
+     * @param topic         消息topic
+     * @param subExpression TAG过滤表达式类型,仅支持或操作，例如“ tag1 || tag2 || tag3”，如果为null或*表达式，则表示全部订阅。
+     * @throws MQClientException if there is any client error.
      */
     void subscribe(final String topic, final String subExpression) throws MQClientException;
 
     /**
      * 基于topic订阅消息,消息过滤使用特定类型的消息选择器(支持TAG过滤，SLQ92过滤)
      *
-     * @param selector 消息选择器,如果为null不过滤消息
+     * @param topic           消息topic
+     * @param selector 消息选择器(支持TAG过滤，SLQ92过滤)
      */
     void subscribe(final String topic, final MessageSelector selector) throws MQClientException;
 
     /**
      * 取消指定topic消息订阅
      *
-     * @param topic message topic
+     * @param topic 消息topic
      */
     void unsubscribe(final String topic);
 
     /**
      * 动态更新使用者线程池大小
+     *
+     * @param corePoolSize 核心线程数
      */
     void updateCorePoolSize(int corePoolSize);
 

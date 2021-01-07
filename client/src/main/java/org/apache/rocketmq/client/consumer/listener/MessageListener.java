@@ -17,7 +17,7 @@
 package org.apache.rocketmq.client.consumer.listener;
 
 /**
- * 用于接收异步传递的消息。
+ * 消息监听器,用于接收异步传递的消息。
  */
 public interface MessageListener {
 }

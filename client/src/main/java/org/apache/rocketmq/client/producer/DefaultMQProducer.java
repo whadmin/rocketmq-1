@@ -120,7 +120,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
     /**
-     * 消息轨迹消息调度员接口
+     * 消息轨迹消息调度接口
      */
     private TraceDispatcher traceDispatcher = null;
 

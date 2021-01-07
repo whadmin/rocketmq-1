@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.consumer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.rocketmq.client.ClientConfig;
 import org.apache.rocketmq.client.QueryResult;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
@@ -46,245 +47,194 @@ import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
- * In most scenarios, this is the mostly recommended class to consume messages.
- * </p>
- *
- * Technically speaking, this push client is virtually a wrapper of the underlying pull service. Specifically, on
- * arrival of messages pulled from brokers, it roughly invokes the registered callback handler to feed the messages.
- * </p>
- *
- * See quickstart/Consumer in the example module for a typical usage.
- * </p>
- *
- * <p>
- * <strong>Thread Safety:</strong> After initialization, the instance can be regarded as thread-safe.
- * </p>
+ * DefaultMQPushConsumer 是Consumer客户端应用程序API路口.
+ * DefaultMQPushConsumer 是Consumer核心配置。
+ * DefaultMQPushConsumer类实现了MQPushConsumer接口，但并非MQPushConsumer接口核心实现，
+ * 其核心实现依赖于内部DefaultMQPushConsumerImpl属性。
  */
 public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsumer {
 
     private final InternalLogger log = ClientLogger.getLog();
 
     /**
-     * Internal implementation. Most of the functions herein are delegated to it.
+     * MQPushConsumer接口核心实现。DefaultMQPushConsumer大多数功能都委托给DefaultMQPushConsumerImpl实现
      */
     protected final transient DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
 
     /**
-     * Consumers of the same role is required to have exactly same subscriptions and consumerGroup to correctly achieve
-     * load balance. It's required and needs to be globally unique.
-     * </p>
-     *
-     * See <a href="http://rocketmq.apache.org/docs/core-concept/">here</a> for further discussion.
+     * 消费者组
      */
     private String consumerGroup;
 
     /**
-     * Message model defines the way how messages are delivered to each consumer clients.
-     * </p>
-     *
-     * RocketMQ supports two message models: clustering and broadcasting. If clustering is set, consumer clients with
-     * the same {@link #consumerGroup} would only consume shards of the messages subscribed, which achieves load
-     * balances; Conversely, if the broadcasting is set, each consumer client will consume all subscribed messages
-     * separately.
-     * </p>
-     *
-     * This field defaults to clustering.
+     * 消息模型
      */
     private MessageModel messageModel = MessageModel.CLUSTERING;
 
     /**
-     * Consuming point on consumer booting.
-     * </p>
-     *
-     * There are three consuming points:
-     * <ul>
-     * <li>
-     * <code>CONSUME_FROM_LAST_OFFSET</code>: consumer clients pick up where it stopped previously.
-     * If it were a newly booting up consumer client, according aging of the consumer group, there are two
-     * cases:
-     * <ol>
-     * <li>
-     * if the consumer group is created so recently that the earliest message being subscribed has yet
-     * expired, which means the consumer group represents a lately launched business, consuming will
-     * start from the very beginning;
-     * </li>
-     * <li>
-     * if the earliest message being subscribed has expired, consuming will start from the latest
-     * messages, meaning messages born prior to the booting timestamp would be ignored.
-     * </li>
-     * </ol>
-     * </li>
-     * <li>
-     * <code>CONSUME_FROM_FIRST_OFFSET</code>: Consumer client will start from earliest messages available.
-     * </li>
-     * <li>
-     * <code>CONSUME_FROM_TIMESTAMP</code>: Consumer client will start from specified timestamp, which means
-     * messages born prior to {@link #consumeTimestamp} will be ignored
-     * </li>
-     * </ul>
+     * 消费者消费策略
+     * //默认策略，从该队列最尾开始消费，即跳过历史消息
+     * CONSUME_FROM_LAST_OFFSET,
+     * //从队列最开始开始消费，即历史消息（还储存在broker的）全部消费一遍
+     * CONSUME_FROM_FIRST_OFFSET,
+     * //从某个时间点开始消费，和setConsumeTimestamp()配合使用，默认是半个小时以前
+     * CONSUME_FROM_TIMESTAMP,
      */
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
     /**
-     * Backtracking consumption time with second precision. Time format is
-     * 20131223171201<br>
-     * Implying Seventeen twelve and 01 seconds on December 23, 2013 year<br>
-     * Default backtracking consumption time Half an hour ago.
+     * consumeFromWhere.CONSUME_FROM_TIMESTAMP时，默认消息回溯时间节点. 时间格式是* 20131223171201
      */
     private String consumeTimestamp = UtilAll.timeMillisToHumanString3(System.currentTimeMillis() - (1000 * 60 * 30));
 
     /**
-     * Queue allocation algorithm specifying how message queues are allocated to each consumer clients.
+     * 用来分配MessageQueue和consumer实例clientID一对一关系的策略算法
      */
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy;
 
     /**
-     * Subscription relationship
+     * 消息topic以及消息topic过滤表达式
      */
     private Map<String /* topic */, String /* sub expression */> subscription = new HashMap<String, String>();
 
     /**
-     * Message listener
+     * 消息监听器
      */
     private MessageListener messageListener;
 
     /**
-     * Offset Storage
+     * 消费进度存储（存在本地/远程两种策略）
      */
     private OffsetStore offsetStore;
 
     /**
-     * Minimum consumer thread number
+     * ConsumeMessageService 消费线程池核心线程数
      */
     private int consumeThreadMin = 20;
 
     /**
-     * Max consumer thread number
+     * ConsumeMessageService 消费线程池最大线程数
      */
     private int consumeThreadMax = 20;
 
     /**
-     * Threshold for dynamic adjustment of the number of thread pool
+     * 动态调整线程池数量的阈值
      */
     private long adjustThreadPoolNumsThreshold = 100000;
 
     /**
-     * Concurrently max span offset.it has no effect on sequential consumption
+     * 并发消息消费时处理队列最大跨度
      */
     private int consumeConcurrentlyMaxSpan = 2000;
 
     /**
-     * Flow control threshold on queue level, each message queue will cache at most 1000 messages by default,
-     * Consider the {@code pullBatchSize}, the instantaneous value may exceed the limit
+     * 队列级别的流量控制阈值，默认情况下每个消息队列最多会缓存1000条消息
+     * 考虑{@code pullBatchSize}，瞬时值可能超过限制
      */
     private int pullThresholdForQueue = 1000;
 
     /**
-     * Limit the cached message size on queue level, each message queue will cache at most 100 MiB messages by default,
-     * Consider the {@code pullBatchSize}, the instantaneous value may exceed the limit
-     *
-     * <p>
-     * The size of a message only measured by message body, so it's not accurate
-     */
-    private int pullThresholdSizeForQueue = 100;
-
-    /**
-     * Flow control threshold on topic level, default value is -1(Unlimited)
-     * <p>
-     * The value of {@code pullThresholdForQueue} will be overwrote and calculated based on
-     * {@code pullThresholdForTopic} if it is't unlimited
-     * <p>
-     * For example, if the value of pullThresholdForTopic is 1000 and 10 message queues are assigned to this consumer,
-     * then pullThresholdForQueue will be set to 100
+     * 主题级别的流量控制阈值，默认值为-1（无限制）* <p> * {@code pullThresholdForQueue}的值将被覆盖并基于*
+     * {@code pullThresholdForTopic}进行计算，如果它不是无限制的
+     * 例如，如果pullThresholdForTopic的值为1000并且为此使用者分配了10个消息队列，则将pullThresholdForQueue设置为100
      */
     private int pullThresholdForTopic = -1;
 
     /**
-     * Limit the cached message size on topic level, default value is -1 MiB(Unlimited)
-     * <p>
-     * The value of {@code pullThresholdSizeForQueue} will be overwrote and calculated based on
-     * {@code pullThresholdSizeForTopic} if it is't unlimited
-     * <p>
-     * For example, if the value of pullThresholdSizeForTopic is 1000 MiB and 10 message queues are
-     * assigned to this consumer, then pullThresholdSizeForQueue will be set to 100 MiB
+     * 队列级别限制缓存的消息大小，默认情况下每个消息队列将缓存最多100条MiB邮件，
+     * 考虑{@code pullBatchSize}，瞬时值可能超出限制
+     * 消息大小仅由消息BODY测量，因此不准确
+     */
+    private int pullThresholdSizeForQueue = 100;
+
+    /**
+     * 主题级别限制缓存消息大小，默认值为-1 MiB（无限制）
+     * {@code pullThresholdSizeForQueue}的值将被覆盖并基于* {@code pullThresholdSizeForTopic}计算，如果它不是无限制的,
+     * 例如，如果pullThresholdSizeForTopic的值为1000 MiB且10个消息队列被分配给此消费者，则pullThresholdSizeForQueue将设置为100 MiB
      */
     private int pullThresholdSizeForTopic = -1;
 
     /**
-     * Message pull Interval
+     * 推模式下任务间隔时间
      */
     private long pullInterval = 0;
 
     /**
-     * Batch consumption size
+     * 推模式下,每次执行MessageListener#consumerMessage传入消息的数量
      */
     private int consumeMessageBatchMaxSize = 1;
 
     /**
-     * Batch pull size
+     * 推模式下任务批量拉取的条数,默认32条
      */
     private int pullBatchSize = 32;
 
     /**
-     * Whether update subscription relationship when every pull
+     * 每次拉动时是否更新订阅关系
      */
     private boolean postSubscriptionWhenPull = false;
 
     /**
-     * Whether the unit of subscription group
+     * 是否单元化
      */
     private boolean unitMode = false;
 
     /**
-     * Max re-consume times. -1 means 16 times.
-     * </p>
-     *
-     * If messages are re-consumed more than {@link #maxReconsumeTimes} before success, it's be directed to a deletion
-     * queue waiting.
+     * 最多重新消费次数。 -1表示16次。
+     * 如果消息重新消费的次数超过{@link #maxReconsumeTimes}, 就可以进入死信队列
      */
     private int maxReconsumeTimes = -1;
 
     /**
-     * Suspending pulling time for cases requiring slow pulling like flow-control scenario.
+     * 对于需要缓慢拉动的情况（例如流控制方案），暂停拉动时间。
      */
     private long suspendCurrentQueueTimeMillis = 1000;
 
     /**
-     * Maximum amount of time in minutes a message may block the consuming thread.
+     * 一条消息可能会阻塞使用线程的最长时间（以分钟为单位）。
      */
     private long consumeTimeout = 15;
 
     /**
-     * Maximum time to await message consuming when shutdown consumer, 0 indicates no await.
+     * 关闭Consumer实例时等待消息消费的最大时间, 0表示不等待。
      */
     private long awaitTerminationMillisWhenShutdown = 0;
 
     /**
-     * Interface of asynchronous transfer data
+     * 消息轨迹消息调度接口
      */
     private TraceDispatcher traceDispatcher = null;
 
     /**
-     * Default constructor.
+     * DefaultMQPushConsumer 默认的构造器
      */
     public DefaultMQPushConsumer() {
         this(null, MixAll.DEFAULT_CONSUMER_GROUP, null, new AllocateMessageQueueAveragely());
     }
 
     /**
-     * Constructor specifying consumer group.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param consumerGroup Consumer group.
+     * @param consumerGroup 消费分组
      */
     public DefaultMQPushConsumer(final String consumerGroup) {
         this(null, consumerGroup, null, new AllocateMessageQueueAveragely());
     }
 
     /**
-     * Constructor specifying namespace and consumer group.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param consumerGroup Consumer group.
+     * @param rpcHook RPC钩子
+     */
+    public DefaultMQPushConsumer(RPCHook rpcHook) {
+        this(null, MixAll.DEFAULT_CONSUMER_GROUP, rpcHook, new AllocateMessageQueueAveragely());
+    }
+
+    /**
+     * DefaultMQPushConsumer  构造函数
+     *
+     * @param namespace     命名空间
+     * @param consumerGroup 消费分组
      */
     public DefaultMQPushConsumer(final String namespace, final String consumerGroup) {
         this(namespace, consumerGroup, null, new AllocateMessageQueueAveragely());
@@ -292,47 +242,38 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
 
     /**
-     * Constructor specifying RPC hook.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param rpcHook RPC hook to execute before each remoting command.
-     */
-    public DefaultMQPushConsumer(RPCHook rpcHook) {
-        this(null, MixAll.DEFAULT_CONSUMER_GROUP, rpcHook, new AllocateMessageQueueAveragely());
-    }
-
-    /**
-     * Constructor specifying namespace, consumer group and RPC hook .
-     *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param consumerGroup Consumer group.
-     * @param rpcHook RPC hook to execute before each remoting command.
+     * @param namespace     命名空间
+     * @param consumerGroup 消费分组
+     * @param rpcHook       RPC钩子
      */
     public DefaultMQPushConsumer(final String namespace, final String consumerGroup, RPCHook rpcHook) {
         this(namespace, consumerGroup, rpcHook, new AllocateMessageQueueAveragely());
     }
 
     /**
-     * Constructor specifying consumer group, RPC hook and message queue allocating algorithm.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param consumerGroup Consume queue.
-     * @param rpcHook RPC hook to execute before each remoting command.
-     * @param allocateMessageQueueStrategy Message queue allocating algorithm.
+     * @param consumerGroup                消费分组
+     * @param rpcHook                      RPC钩子
+     * @param allocateMessageQueueStrategy 分配MessageQueue和consumer实例clientID一对一关系的策略算法
      */
     public DefaultMQPushConsumer(final String consumerGroup, RPCHook rpcHook,
-        AllocateMessageQueueStrategy allocateMessageQueueStrategy) {
+                                 AllocateMessageQueueStrategy allocateMessageQueueStrategy) {
         this(null, consumerGroup, rpcHook, allocateMessageQueueStrategy);
     }
 
     /**
-     * Constructor specifying namespace, consumer group, RPC hook and message queue allocating algorithm.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param consumerGroup Consume queue.
-     * @param rpcHook RPC hook to execute before each remoting command.
-     * @param allocateMessageQueueStrategy Message queue allocating algorithm.
+     * @param namespace                    命名空间
+     * @param consumerGroup                消费分组
+     * @param rpcHook                      RPC钩子
+     * @param allocateMessageQueueStrategy 分配MessageQueue和consumer实例clientID一对一关系的策略算法
      */
     public DefaultMQPushConsumer(final String namespace, final String consumerGroup, RPCHook rpcHook,
-        AllocateMessageQueueStrategy allocateMessageQueueStrategy) {
+                                 AllocateMessageQueueStrategy allocateMessageQueueStrategy) {
         this.consumerGroup = consumerGroup;
         this.namespace = namespace;
         this.allocateMessageQueueStrategy = allocateMessageQueueStrategy;
@@ -340,21 +281,21 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Constructor specifying consumer group and enabled msg trace flag.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param consumerGroup Consumer group.
-     * @param enableMsgTrace Switch flag instance for message trace.
+     * @param consumerGroup  消费分组
+     * @param enableMsgTrace 是否使用消费轨迹开关
      */
     public DefaultMQPushConsumer(final String consumerGroup, boolean enableMsgTrace) {
         this(null, consumerGroup, null, new AllocateMessageQueueAveragely(), enableMsgTrace, null);
     }
 
     /**
-     * Constructor specifying consumer group, enabled msg trace flag and customized trace topic name.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param consumerGroup Consumer group.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default trace topic name.
+     * @param consumerGroup        消费分组
+     * @param enableMsgTrace       是否使用消费轨迹开关
+     * @param customizedTraceTopic 消费轨迹消息存储topic
      */
     public DefaultMQPushConsumer(final String consumerGroup, boolean enableMsgTrace, final String customizedTraceTopic) {
         this(null, consumerGroup, null, new AllocateMessageQueueAveragely(), enableMsgTrace, customizedTraceTopic);
@@ -362,50 +303,59 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
 
     /**
-     * Constructor specifying consumer group, RPC hook, message queue allocating algorithm, enabled msg trace flag and customized trace topic name.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param consumerGroup Consume queue.
-     * @param rpcHook RPC hook to execute before each remoting command.
-     * @param allocateMessageQueueStrategy message queue allocating algorithm.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default trace topic name.
+     * @param consumerGroup                消费分组
+     * @param rpcHook                      RPC钩子
+     * @param allocateMessageQueueStrategy 分配MessageQueue和consumer实例clientID一对一关系的策略算法
+     * @param enableMsgTrace               是否使用消费轨迹开关
+     * @param customizedTraceTopic         消费轨迹消息存储topic
      */
     public DefaultMQPushConsumer(final String consumerGroup, RPCHook rpcHook,
-        AllocateMessageQueueStrategy allocateMessageQueueStrategy, boolean enableMsgTrace, final String customizedTraceTopic) {
+                                 AllocateMessageQueueStrategy allocateMessageQueueStrategy, boolean enableMsgTrace, final String customizedTraceTopic) {
         this(null, consumerGroup, rpcHook, allocateMessageQueueStrategy, enableMsgTrace, customizedTraceTopic);
     }
 
     /**
-     * Constructor specifying namespace, consumer group, RPC hook, message queue allocating algorithm, enabled msg trace flag and customized trace topic name.
+     * DefaultMQPushConsumer  构造函数
      *
-     * @param namespace Namespace for this MQ Producer instance.
-     * @param consumerGroup Consume queue.
-     * @param rpcHook RPC hook to execute before each remoting command.
-     * @param allocateMessageQueueStrategy message queue allocating algorithm.
-     * @param enableMsgTrace Switch flag instance for message trace.
-     * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default trace topic name.
+     * @param namespace                    命名空间
+     * @param consumerGroup                消费分组
+     * @param rpcHook                      RPC钩子
+     * @param allocateMessageQueueStrategy 分配MessageQueue和consumer实例clientID一对一关系的策略算法
+     * @param enableMsgTrace               是否使用消费轨迹开关
+     * @param customizedTraceTopic         消费轨迹消息存储topic
      */
     public DefaultMQPushConsumer(final String namespace, final String consumerGroup, RPCHook rpcHook,
-        AllocateMessageQueueStrategy allocateMessageQueueStrategy, boolean enableMsgTrace, final String customizedTraceTopic) {
+                                 AllocateMessageQueueStrategy allocateMessageQueueStrategy, boolean enableMsgTrace, final String customizedTraceTopic) {
         this.consumerGroup = consumerGroup;
         this.namespace = namespace;
         this.allocateMessageQueueStrategy = allocateMessageQueueStrategy;
         defaultMQPushConsumerImpl = new DefaultMQPushConsumerImpl(this, rpcHook);
+        //是否开启消息轨迹
         if (enableMsgTrace) {
             try {
+                //创建 AsyncTraceDispatcher（异步消息轨迹调度员）
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(consumerGroup, TraceDispatcher.Type.CONSUME, customizedTraceTopic, rpcHook);
                 dispatcher.setHostConsumer(this.getDefaultMQPushConsumerImpl());
                 traceDispatcher = dispatcher;
+                //将 AsyncTraceDispatcher 注册到 DefaultMQPushConsumerImpl
                 this.getDefaultMQPushConsumerImpl().registerConsumeMessageHook(
-                    new ConsumeMessageTraceHookImpl(traceDispatcher));
+                        new ConsumeMessageTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
                 log.error("system mqtrace hook init failed ,maybe can't send msg trace data");
             }
         }
     }
 
+    /*********************  MQAdmin接口实现  *********************/
+
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 创建Topic
+     *
+     * @param key      accesskey
+     * @param newTopic topic 名称
+     * @param queueNum topic queue(队列) number（数量）
      */
     @Deprecated
     @Override
@@ -414,7 +364,12 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 创建Topic
+     *
+     * @param key          accesskey
+     * @param newTopic     topic 名称
+     * @param queueNum     topic queue(队列) number（数量）
+     * @param topicSysFlag topic 系统标识
      */
     @Deprecated
     @Override
@@ -423,7 +378,13 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 根据某个时间（以毫秒为单位）获取消息队列偏移量<br> 由于更多的IO开销，请谨慎致电
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.SEARCH_OFFSET_BY_TIMESTAMP
+     *
+     * @param mq        消息队列
+     * @param timestamp
+     * @return offset
      */
     @Deprecated
     @Override
@@ -432,7 +393,12 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 获取指定消息队列最大逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MAX_OFFSET
+     *
+     * @param mq 消息队列
+     * @return 最大偏移
      */
     @Deprecated
     @Override
@@ -441,7 +407,12 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 获取指定消息队列最小逻辑偏移量
+     * broker内部AdminBrokerProcessor负责处理
+     * 请求Code:RequestCode.GET_MIN_OFFSET
+     *
+     * @param mq 消息队列
+     * @return 最小偏移
      */
     @Deprecated
     @Override
@@ -450,7 +421,10 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 获取指定消息队最早的存储消息时间
+     *
+     * @param mq 消息队列
+     * @return 最早的存储消息时间
      */
     @Deprecated
     @Override
@@ -459,32 +433,44 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 根据消息ID查询消息
+     *
+     * @param offsetMsgId 消息id
+     * @return message
      */
     @Deprecated
     @Override
     public MessageExt viewMessage(
-        String offsetMsgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+            String offsetMsgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         return this.defaultMQPushConsumerImpl.viewMessage(offsetMsgId);
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 根据条件查询消息（条件包括指定topic+指定消息key+时间范围）的消息
+     *
+     * @param topic  消息topic
+     * @param key    消息key
+     * @param maxNum 返回满足消息的最大数量
+     * @param begin  查询消息产生时间开始
+     * @param end    查询消息产生时间结束
+     * @return Instance of QueryResult
      */
     @Deprecated
     @Override
     public QueryResult queryMessage(String topic, String key, int maxNum, long begin, long end)
-        throws MQClientException, InterruptedException {
+            throws MQClientException, InterruptedException {
         return this.defaultMQPushConsumerImpl.queryMessage(withNamespace(topic), key, maxNum, begin, end);
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 根据消息ID查询消息
+     * 1 优先通过消息ID查询消息
+     * 2 如果1查询不到根据topic+消息key(key=msgId)查询消息
      */
     @Deprecated
     @Override
     public MessageExt viewMessage(String topic,
-        String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+                                  String msgId) throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         try {
             MessageDecoder.decodeMessageId(msgId);
             return this.viewMessage(msgId);
@@ -550,9 +536,6 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
         this.consumeThreadMin = consumeThreadMin;
     }
 
-    /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     */
     @Deprecated
     public DefaultMQPushConsumerImpl getDefaultMQPushConsumerImpl() {
         return defaultMQPushConsumerImpl;
@@ -627,7 +610,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
+     * 设置消息topic以及消息topic过滤表达式
      */
     @Deprecated
     public void setSubscription(Map<String, String> subscription) {
@@ -638,64 +621,75 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
         this.subscription = subscriptionWithNamespace;
     }
 
+    /*********************  MQConsumer 接口实现  *********************/
+
     /**
-     * Send message back to broker which will be re-delivered in future.
+     * 如果consumer消费消息失败，consumer将延迟消耗一些时间，将消息将被发送回broker，
+     * <p>
+     * 在2020年4月5日之后，此方法将被删除或在某些版本中其可见性将更改，因此请不要使用此方法。
      *
-     * This method will be removed or it's visibility will be changed in a certain version after April 5, 2020, so
-     * please do not use this method.
-     *
-     * @param msg Message to send back.
-     * @param delayLevel delay level.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws MQClientException if there is any client error.
+     * @param msg        发送返回消息
+     * @param delayLevel 延迟级别。
+     * @throws RemotingException    远程调用异常
+     * @throws MQBrokerException    broker异常
+     * @throws InterruptedException 中断异常
+     * @throws MQClientException    客户端异常
      */
     @Deprecated
     @Override
     public void sendMessageBack(MessageExt msg, int delayLevel)
-        throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+            throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQPushConsumerImpl.sendMessageBack(msg, delayLevel, null);
     }
 
     /**
-     * Send message back to the broker whose name is <code>brokerName</code> and the message will be re-delivered in
-     * future.
+     * 如果consumer消费消息失败，consumer将延迟消耗一些时间，将消息将被发送回broker，
+     * <p>
+     * 在2020年4月5日之后，此方法将被删除或在某些版本中其可见性将更改，因此请不要使用此方法。
      *
-     * This method will be removed or it's visibility will be changed in a certain version after April 5, 2020, so
-     * please do not use this method.
-     *
-     * @param msg Message to send back.
-     * @param delayLevel delay level.
-     * @param brokerName broker name.
-     * @throws RemotingException if there is any network-tier error.
-     * @throws MQBrokerException if there is any broker error.
-     * @throws InterruptedException if the thread is interrupted.
-     * @throws MQClientException if there is any client error.
+     * @param msg        发送返回消息
+     * @param delayLevel 延迟级别。
+     * @param brokerName broker节点名称
+     * @throws RemotingException    远程调用异常
+     * @throws MQBrokerException    broker异常
+     * @throws InterruptedException 中断异常
+     * @throws MQClientException    客户端异常
      */
     @Deprecated
     @Override
     public void sendMessageBack(MessageExt msg, int delayLevel, String brokerName)
-        throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
+            throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         msg.setTopic(withNamespace(msg.getTopic()));
         this.defaultMQPushConsumerImpl.sendMessageBack(msg, delayLevel, brokerName);
     }
 
+    /**
+     * 根据消息topic对应MessageQueue(消息队列列表)
+     *
+     * @param topic 消息topic
+     * @return MessageQueue(消息队列列表)
+     */
     @Override
     public Set<MessageQueue> fetchSubscribeMessageQueues(String topic) throws MQClientException {
         return this.defaultMQPushConsumerImpl.fetchSubscribeMessageQueues(withNamespace(topic));
     }
 
+
+    /*********************  MQPullConsumer 接口实现  *********************/
+
+
     /**
-     * This method gets internal infrastructure readily to serve. Instances must call this method after configuration.
+     * 启动
      *
-     * @throws MQClientException if there is any client error.
+     * @throws MQClientException 如果有任何客户端错误。
      */
     @Override
     public void start() throws MQClientException {
         setConsumerGroup(NamespaceUtil.wrapNamespace(this.getNamespace(), this.consumerGroup));
+        //启动 defaultMQPushConsumerImpl
         this.defaultMQPushConsumerImpl.start();
+        //启动 traceDispatcher
         if (null != traceDispatcher) {
             try {
                 traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());
@@ -706,16 +700,23 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Shut down this client and releasing underlying resources.
+     * 关闭
      */
     @Override
     public void shutdown() {
+        //关闭 defaultMQPushConsumerImpl
         this.defaultMQPushConsumerImpl.shutdown(awaitTerminationMillisWhenShutdown);
+        //关闭 traceDispatcher
         if (null != traceDispatcher) {
             traceDispatcher.shutdown();
         }
     }
 
+    /**
+     * 注册消息监听器（已废弃）
+     *
+     * @param messageListener 消息监听器
+     */
     @Override
     @Deprecated
     public void registerMessageListener(MessageListener messageListener) {
@@ -724,9 +725,9 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Register a callback to execute on message arrival for concurrent consuming.
+     * 注册并发消息监听器
      *
-     * @param messageListener message handling callback.
+     * @param messageListener 并发事件监听器
      */
     @Override
     public void registerMessageListener(MessageListenerConcurrently messageListener) {
@@ -735,9 +736,9 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Register a callback to execute on message arrival for orderly consuming.
+     * 注册顺序消息事件监听器
      *
-     * @param messageListener message handling callback.
+     * @param messageListener 顺序消息事件监听器
      */
     @Override
     public void registerMessageListener(MessageListenerOrderly messageListener) {
@@ -746,11 +747,10 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Subscribe a topic to consuming subscription.
+     * 基于topic订阅消息，消息过滤使用TAG过滤表达式类型
      *
-     * @param topic topic to subscribe.
-     * @param subExpression subscription expression.it only support or operation such as "tag1 || tag2 || tag3" <br>
-     * if null or * expression,meaning subscribe all
+     * @param topic         消息topic
+     * @param subExpression TAG过滤表达式类型,仅支持或操作，例如“ tag1 || tag2 || tag3”，如果为null或*表达式，则表示全部订阅。
      * @throws MQClientException if there is any client error.
      */
     @Override
@@ -759,11 +759,11 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Subscribe a topic to consuming subscription.
+     * 基于topic订阅消息，消息过滤使用类模式（已废弃）
      *
-     * @param topic topic to consume.
-     * @param fullClassName full class name,must extend org.apache.rocketmq.common.filter. MessageFilter
-     * @param filterClassSource class source code,used UTF-8 file encoding,must be responsible for your code safety
+     * @param topic             消息topic
+     * @param fullClassName     class名称
+     * @param filterClassSource class资源
      */
     @Override
     public void subscribe(String topic, String fullClassName, String filterClassSource) throws MQClientException {
@@ -771,12 +771,10 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Subscribe a topic by message selector.
+     * 基于topic订阅消息,消息过滤使用特定类型的消息选择器(支持TAG过滤，SLQ92过滤)
      *
-     * @param topic topic to consume.
-     * @param messageSelector {@link org.apache.rocketmq.client.consumer.MessageSelector}
-     * @see org.apache.rocketmq.client.consumer.MessageSelector#bySql
-     * @see org.apache.rocketmq.client.consumer.MessageSelector#byTag
+     * @param topic           消息topic
+     * @param messageSelector 消息选择器(支持TAG过滤，SLQ92过滤)
      */
     @Override
     public void subscribe(final String topic, final MessageSelector messageSelector) throws MQClientException {
@@ -784,9 +782,9 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Un-subscribe the specified topic from subscription.
+     * 取消指定topic消息订阅
      *
-     * @param topic message topic
+     * @param topic 消息topic
      */
     @Override
     public void unsubscribe(String topic) {
@@ -794,9 +792,9 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Update the message consuming thread core pool size.
+     * 动态更新使用者线程池大小
      *
-     * @param corePoolSize new core pool size.
+     * @param corePoolSize 核心线程数
      */
     @Override
     public void updateCorePoolSize(int corePoolSize) {
@@ -804,7 +802,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Suspend pulling new messages.
+     * 暂停消费
      */
     @Override
     public void suspend() {
@@ -812,24 +810,19 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     }
 
     /**
-     * Resume pulling.
+     * 恢复消费
      */
     @Override
     public void resume() {
         this.defaultMQPushConsumerImpl.resume();
     }
 
-    /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     */
+
     @Deprecated
     public OffsetStore getOffsetStore() {
         return offsetStore;
     }
 
-    /**
-     * This method will be removed in a certain version after April 5, 2020, so please do not use this method.
-     */
     @Deprecated
     public void setOffsetStore(OffsetStore offsetStore) {
         this.offsetStore = offsetStore;
