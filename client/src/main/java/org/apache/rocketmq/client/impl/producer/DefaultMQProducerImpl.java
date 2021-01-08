@@ -259,6 +259,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
                 // 5 将DefaultMQProducerImpl注册到 MQClientInstance.producerTable中
+                // 1 个 mQClientFactory（MQ客户端实例对象一个进程）对应多个defaultMQProducer
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -280,11 +281,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 //8 设置服务正在运行
                 this.serviceState = ServiceState.RUNNING;
                 break;
-            //服务状态是服务正在运行
+                //服务状态是正在运行
             case RUNNING:
-                //服务状态是服务正在运行
+                //服务状态是启动失败
             case START_FAILED:
-                //服务状态是服务正在运行
+                //服务状态是正在关闭
             case SHUTDOWN_ALREADY:
                 //抛出异常
                 throw new MQClientException("The producer service state not OK, maybe started once, "

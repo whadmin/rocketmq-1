@@ -65,10 +65,10 @@ public interface MQProducerInner {
             final CheckTransactionStateRequestHeader checkRequestHeader);
 
     /**
-     * 更新发送消息topic和发布信息
+     * topic和topic对应发布信息
      *
      * @param topic 发送消息topic
-     * @param info  路由信息
+     * @param info  topic对应发布信息
      */
     void updateTopicPublishInfo(final String topic, final TopicPublishInfo info);
 

@@ -350,6 +350,7 @@ public class MQClientInstance {
      * topicRouteData转换成TopicPublishInfo
      * TopicPublishInfo 表示给MQProducerInner使用topic路由信息
      * 我们会把转换获取TopicPublishInfo更新同步到所有使用当前对象作为客户端MQProducerInner.topicPublishInfoTable】
+     *
      * @param topic
      * @param route
      * @return
@@ -605,26 +606,42 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 检查所有注册到客户端实例的MQConsumerInner，并获取MQConsumerInner所有订阅配置到broker检查
+     * <p>
+     * 1 获取所有注册到客户端实例 MQConsumerInner以及分组
+     * 2 获取MQConsumerInner内部设置得订阅配置信息集合
+     * 3 过滤掉消息过滤表达类型是TAG过滤得订阅配置
+     * 4 调用broker检查所有订阅配置
+     *
+     * @throws MQClientException
+     */
     public void checkClientInBroker() throws MQClientException {
+        //获取所有注册到客户端实例 MQConsumerInner以及分组
         Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();
-
+        //对所有注册MQConsumerInner进行遍历
         while (it.hasNext()) {
+            //获得Entry
             Entry<String, MQConsumerInner> entry = it.next();
+            //获取MQConsumerInner内部设置得订阅配置信息集合
             Set<SubscriptionData> subscriptionInner = entry.getValue().subscriptions();
+            //如果订阅配置信息集合为空直接返回
             if (subscriptionInner == null || subscriptionInner.isEmpty()) {
                 return;
             }
 
+            //遍历订阅配置信息集合
             for (SubscriptionData subscriptionData : subscriptionInner) {
+                //如果订阅配置消息过滤表达类型是TAG过滤直接返回
                 if (ExpressionType.isTagType(subscriptionData.getExpressionType())) {
                     continue;
                 }
-                // may need to check one broker every cluster...
-                // assume that the configs of every broker in cluster are the the same.
+                //获取存储topic消息某个broker实例
                 String addr = findBrokerAddrByTopic(subscriptionData.getTopic());
 
                 if (addr != null) {
                     try {
+                        //通过MQ客户端实现检查订阅配置信息
                         this.getMQClientAPIImpl().checkClientInBroker(
                                 addr, entry.getKey(), this.clientId, subscriptionData, 3 * 1000
                         );
@@ -752,13 +769,18 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 准备心跳数据
+     *
+     * @return
+     */
     private HeartbeatData prepareHeartbeatData() {
+        //创建心跳数据
         HeartbeatData heartbeatData = new HeartbeatData();
-
-        // clientID
+        //设置客户端ID
         heartbeatData.setClientID(this.clientId);
 
-        // Consumer
+        //获取生产者数据集合，设置到心跳数据中
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
@@ -774,7 +796,7 @@ public class MQClientInstance {
             }
         }
 
-        // Producer
+        //获取生产者数据集合，设置到心跳数据中
         for (Map.Entry<String/* group */, MQProducerInner> entry : this.producerTable.entrySet()) {
             MQProducerInner impl = entry.getValue();
             if (impl != null) {
@@ -784,7 +806,7 @@ public class MQClientInstance {
                 heartbeatData.getProducerDataSet().add(producerData);
             }
         }
-
+        //返回心跳数据
         return heartbeatData;
     }
 
@@ -815,7 +837,13 @@ public class MQClientInstance {
     }
 
     /**
-     * 从Namerser 获取topic对应的topicRouteData路由信息,并更新到其TopicPublishInfo发布信息中
+     * 1 从Namerser获取topic对应的路由信息
+     * 2 更新到客户端实例属性中
+     * 其中包括：
+     * topicRouteTable 不同topic以及对应的路由信息
+     * brokerAddrTable 不同的broker节点异以及对应节点内不同类型broker和地址端口
+     * 所有注册MQProducerInner 更新topic和topic对应发布信息
+     * 所有注册MQConsumerInner 更新topic和Set<MessageQueue> 消息队列集合
      *
      * @param topic topic名称
      * @return 是否成功
@@ -826,7 +854,13 @@ public class MQClientInstance {
 
 
     /**
-     * 从Namerser 获取topic对应的topicRouteData路由信息,并更新到其TopicPublishInfo发布信息中
+     * 1 从Namerser获取topic对应的路由信息
+     * 2 更新到客户端实例属性中
+     * 其中包括：
+     * topicRouteTable 不同topic以及对应的路由信息
+     * brokerAddrTable 不同的broker节点异以及对应节点内不同类型broker和地址端口
+     * 所有注册MQProducerInner 更新topic和topic对应发布信息
+     * 所有注册MQConsumerInner 更新topic和Set<MessageQueue> 读取消息队列集合
      *
      * @param topic             topic名称
      * @param isDefault         是否获取是默认topic="TBW102"的路由信息
@@ -894,7 +928,7 @@ public class MQClientInstance {
                                     Entry<String, MQProducerInner> entry = it.next();
                                     MQProducerInner impl = entry.getValue();
                                     if (impl != null) {
-                                        //更新发送消息topic和发布信息
+                                        //topic和topic对应发布信息
                                         impl.updateTopicPublishInfo(topic, publishInfo);
                                     }
                                 }
@@ -1046,6 +1080,7 @@ public class MQClientInstance {
     /**
      * 如果topic本地和远程获取路由信息是否需要更新
      * 通过客户端MQProducerInner，MQConsumerInner配置判断
+     *
      * @param topic
      * @return
      */
@@ -1343,13 +1378,23 @@ public class MQClientInstance {
         return null;
     }
 
+    /**
+     * 获取存储topic消息某个broker实例
+     *
+     * @param topic
+     * @return
+     */
     public String findBrokerAddrByTopic(final String topic) {
+        //获得topic路由信息
         TopicRouteData topicRouteData = this.topicRouteTable.get(topic);
         if (topicRouteData != null) {
+            //获取存储topic所有broker节点数据
             List<BrokerData> brokers = topicRouteData.getBrokerDatas();
             if (!brokers.isEmpty()) {
+                //随机获取某一个broker节点数据
                 int index = random.nextInt(brokers.size());
                 BrokerData bd = brokers.get(index % brokers.size());
+                //从随机获取broker节点数据随机选择一个broker实例
                 return bd.selectBrokerAddr();
             }
         }

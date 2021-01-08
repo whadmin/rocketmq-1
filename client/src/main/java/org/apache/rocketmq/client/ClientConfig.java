@@ -87,8 +87,9 @@ public class ClientConfig {
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
 
-
-
+    /**
+     * 拉取消息发生异常时，延迟时间
+     */
     private long pullTimeDelayMillsWhenException = 1000;
 
     /**
@@ -146,6 +147,9 @@ public class ClientConfig {
         this.instanceName = instanceName;
     }
 
+    /**
+     * 设置instanceName
+     */
     public void changeInstanceNameToPID() {
         if (this.instanceName.equals("DEFAULT")) {
             this.instanceName = String.valueOf(UtilAll.getPid());

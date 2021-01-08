@@ -21,6 +21,8 @@ import java.util.List;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * 分配MessageQueue策略
+ *
  * AllocateMessageQueueStrategy 用来分配MessageQueue和consumer实例clientID一对一关系的策略算法
  *
  * Topic  ----  consumerGroup 是一对订阅关系

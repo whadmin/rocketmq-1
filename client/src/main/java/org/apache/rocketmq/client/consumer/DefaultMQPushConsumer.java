@@ -54,6 +54,9 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  */
 public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsumer {
 
+    /**
+     * 内部日志
+     */
     private final InternalLogger log = ClientLogger.getLog();
 
     /**
