@@ -18,30 +18,72 @@ package org.apache.rocketmq.common;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * MQ线程服务基类
+ */
 public abstract class ServiceThread implements Runnable {
+
+    /**
+     * 内部日志
+     */
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
+    /**
+     * 关闭服务线程同步等待服务线程中止等待时间
+     */
     private static final long JOIN_TIME = 90 * 1000;
 
+    /**
+     * 服务执行工作线程
+     */
     private Thread thread;
+
+    /**
+     * 线程同步工具,用来同步阻塞执行工作线程每次执行成功后等待10秒下次执行，此类扩展了CountDownLatch,增强了一个重置的线程阻塞状态的方法
+     */
     protected final CountDownLatch2 waitPoint = new CountDownLatch2(1);
+
+    /**
+     * 通知工作线程是否有新的请求任务
+     */
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
+
+    /**
+     * 服务是否停止
+     */
     protected volatile boolean stopped = false;
+
+    /**
+     * 执行工作线程是否是守护线程
+     */
     protected boolean isDaemon = false;
 
-    //Make it able to restart the thread
+    /**
+     * 是否以启动
+     */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
+    /**
+     * ServiceThread 构造函数
+     */
     public ServiceThread() {
 
     }
 
+    /**
+     * 获取服务名称
+     */
     public abstract String getServiceName();
 
+
+    /**
+     *
+     */
     public void start() {
         log.info("Try to start service thread:{} started:{} lastThread:{}", getServiceName(), started.get(), thread);
         if (!started.compareAndSet(false, true)) {
@@ -53,11 +95,20 @@ public abstract class ServiceThread implements Runnable {
         this.thread.start();
     }
 
+    /**
+     * 关闭
+     */
     public void shutdown() {
         this.shutdown(false);
     }
 
+    /**
+     * 关闭
+     *
+     * @param interrupt 是否中断服务执行工作线程
+     */
     public void shutdown(final boolean interrupt) {
+
         log.info("Try to shutdown service thread:{} started:{} lastThread:{}", getServiceName(), started.get(), thread);
         if (!started.compareAndSet(true, false)) {
             return;
@@ -80,7 +131,7 @@ public abstract class ServiceThread implements Runnable {
             }
             long elapsedTime = System.currentTimeMillis() - beginTime;
             log.info("join thread " + this.getServiceName() + " elapsed time(ms) " + elapsedTime + " "
-                + this.getJointime());
+                    + this.getJointime());
         } catch (InterruptedException e) {
             log.error("Interrupted", e);
         }

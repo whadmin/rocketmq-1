@@ -54,6 +54,10 @@ public class UtilAll {
     public static final String YYYYMMDDHHMMSS = "yyyyMMddHHmmss";
     final static char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
+    /**
+     * 获取进程名称 format: "pid@hostname"
+     * @return
+     */
     public static int getPid() {
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
         String name = runtime.getName(); // format: "pid@hostname"
