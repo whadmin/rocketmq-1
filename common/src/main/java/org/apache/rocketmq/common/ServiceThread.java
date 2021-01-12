@@ -210,7 +210,7 @@ public abstract class ServiceThread implements Runnable {
     }
 
     /**
-     * 如果服务线程存在新的任务，通知服务线程从阻塞中被唤醒
+     * 服务线程存在新的任务，通知服务线程从阻塞中被唤醒
      */
     public void wakeup() {
         if (hasNotified.compareAndSet(false, true)) {
