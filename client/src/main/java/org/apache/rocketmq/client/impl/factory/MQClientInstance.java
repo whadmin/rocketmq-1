@@ -1258,7 +1258,7 @@ public class MQClientInstance {
 
 
     /**
-     * 注册消费者分组
+     *从 MQClientInstance客户端实例 注册消费者分组
      *
      * @param group    消费者分组名称
      * @param consumer MQConsumerInner
@@ -1278,7 +1278,7 @@ public class MQClientInstance {
     }
 
     /**
-     * 取消注册消费者分组
+     * 从 MQClientInstance客户端实例 取消注册消费者分组
      *
      * @param group 消费者分组
      */
@@ -1289,7 +1289,7 @@ public class MQClientInstance {
     }
 
     /**
-     * 获取指定消费者分组对应 MQConsumerInner
+     * 从 MQClientInstance客户端实例 获取指定消费者分组对应 MQConsumerInner
      *
      * @param group 消费者分组
      * @return MQConsumerInner

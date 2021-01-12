@@ -210,10 +210,13 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         this.pullTimeDelayMillsWhenException = defaultMQPushConsumer.getPullTimeDelayMillsWhenException();
     }
 
+
+    /**************** MQPushConsumer接口核心实现 ****************/
+
     /**************** DefaultMQPushConsumerImpl 启动关闭开始 ****************/
 
     /**
-     * 启动
+     * 启动DefaultMQPushConsumerImpl
      *
      * @throws MQClientException MQ客户端异常
      */
@@ -338,11 +341,56 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         //检查所有注册到客户端实例的MQConsumerInner，并获取MQConsumerInner所有订阅配置到broker检查
         this.mQClientFactory.checkClientInBroker();
 
-
+        //1 获取注册到 MQClientInstance客户端实例 的所有broker实例发送 MQClientInstance客户端实例 HeartbeatData心跳数据
+        //2 获取注册到 MQClientInstance客户端实例 的所有MQConsumerInner，并对MQConsumerInner中支持filterServer订阅配置进行上传注册。
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
 
         //唤醒客户端实例内部均衡消息服务（本质是一个线程）
         this.mQClientFactory.rebalanceImmediately();
+    }
+
+    /**
+     * 关闭 DefaultMQPushConsumerImpl
+     */
+    public void shutdown() {
+        shutdown(0);
+    }
+
+
+    /**
+     * 关闭 DefaultMQPushConsumerImpl
+     *
+     * @param awaitTerminateMillis 等待超时时间
+     */
+    public synchronized void shutdown(long awaitTerminateMillis) {
+        //判断服务状态
+        switch (this.serviceState) {
+            //如果服务刚刚创建
+            case CREATE_JUST:
+                break;
+            //如果服务正在运行
+            case RUNNING:
+                //关闭消费消息服务
+                this.consumeMessageService.shutdown(awaitTerminateMillis);
+                //持久化消费进度
+                this.persistConsumerOffset();
+                //从 MQClientInstance客户端实例 注销消费者分组
+                this.mQClientFactory.unregisterConsumer(this.defaultMQPushConsumer.getConsumerGroup());
+                //关闭 MQClientInstance客户端实例
+                this.mQClientFactory.shutdown();
+                //打印日志
+                log.info("the consumer [{}] shutdown OK", this.defaultMQPushConsumer.getConsumerGroup());
+                //关闭消息队列负载均衡服务
+                this.rebalanceImpl.destroy();
+                //设置服务状态正在关闭
+                this.serviceState = ServiceState.SHUTDOWN_ALREADY;
+                break;
+            //如果服务正在关闭
+            case SHUTDOWN_ALREADY:
+                break;
+            default:
+                break;
+        }
     }
 
     /**
@@ -590,28 +638,137 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         }
     }
 
-    public void shutdown() {
-        shutdown(0);
+
+
+    /**************** registerMessageListener 开始 ****************/
+
+
+    public void registerMessageListener(MessageListener messageListener) {
+        this.messageListenerInner = messageListener;
     }
 
-    public synchronized void shutdown(long awaitTerminateMillis) {
-        switch (this.serviceState) {
-            case CREATE_JUST:
-                break;
-            case RUNNING:
-                this.consumeMessageService.shutdown(awaitTerminateMillis);
-                this.persistConsumerOffset();
-                this.mQClientFactory.unregisterConsumer(this.defaultMQPushConsumer.getConsumerGroup());
-                this.mQClientFactory.shutdown();
-                log.info("the consumer [{}] shutdown OK", this.defaultMQPushConsumer.getConsumerGroup());
-                this.rebalanceImpl.destroy();
-                this.serviceState = ServiceState.SHUTDOWN_ALREADY;
-                break;
-            case SHUTDOWN_ALREADY:
-                break;
-            default:
-                break;
+    /**************** subscribe 开始 ****************/
+
+    /**
+     * 基于topic订阅消息，消息过滤使用TAG过滤表达式类型
+     *
+     * @param topic         消息topic
+     * @param subExpression TAG过滤表达式类型,仅支持或操作，例如“ tag1 || tag2 || tag3”，如果为null或*表达式，则表示全部订阅。
+     * @throws MQClientException if there is any client error.
+     */
+    public void subscribe(String topic, String subExpression) throws MQClientException {
+        try {
+            //获取订阅配置信息（通过topic过滤表达式）
+            SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(this.defaultMQPushConsumer.getConsumerGroup(),
+                    topic, subExpression);
+            //注册订阅配置信息到消息队列负载均衡服务
+            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
+
+            //1 获取注册到 MQClientInstance客户端实例 的所有broker实例发送 MQClientInstance客户端实例 HeartbeatData心跳数据
+            //2 获取注册到 MQClientInstance客户端实例 的所有MQConsumerInner，并对MQConsumerInner中支持filterServer订阅配置进行上传注册。
+            if (this.mQClientFactory != null) {
+                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
+            }
+        } catch (Exception e) {
+            throw new MQClientException("subscription exception", e);
         }
+    }
+
+    /**
+     * 基于topic订阅消息，消息过滤使用类模式（已废弃）
+     *
+     * @param topic             消息topicc
+     * @param fullClassName     class名称
+     * @param filterClassSource class资源
+     */
+    public void subscribe(String topic, String fullClassName, String filterClassSource) throws MQClientException {
+        try {
+            //获取构造订阅配置信息
+            SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(this.defaultMQPushConsumer.getConsumerGroup(),
+                    topic, "*");
+            subscriptionData.setSubString(fullClassName);
+            subscriptionData.setClassFilterMode(true);
+            subscriptionData.setFilterClassSource(filterClassSource);
+
+            //注册订阅配置信息到消息队列负载均衡服务
+            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
+
+            //1 获取注册到 MQClientInstance客户端实例 的所有broker实例发送 MQClientInstance客户端实例 HeartbeatData心跳数据
+            //2 获取注册到 MQClientInstance客户端实例 的所有MQConsumerInner，并对MQConsumerInner中支持filterServer订阅配置进行上传注册。
+            if (this.mQClientFactory != null) {
+                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
+            }
+
+        } catch (Exception e) {
+            throw new MQClientException("subscription exception", e);
+        }
+    }
+
+    /**
+     * 基于topic订阅消息,消息过滤使用特定类型的消息选择器(支持TAG过滤，SLQ92过滤)
+     *
+     * @param topic           消息topic
+     * @param messageSelector 消息选择器(支持TAG过滤，SLQ92过滤)
+     */
+    public void subscribe(final String topic, final MessageSelector messageSelector) throws MQClientException {
+        try {
+            //如果messageSelector=null，调用subscribe，订阅当前topic，不过滤
+            if (messageSelector == null) {
+                subscribe(topic, SubscriptionData.SUB_ALL);
+                return;
+            }
+            //获取构造订阅配置信息（通过topic过滤表达式）
+            SubscriptionData subscriptionData = FilterAPI.build(topic,
+                    messageSelector.getExpression(), messageSelector.getExpressionType());
+
+            //注册订阅配置信息到消息队列负载均衡服务
+            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
+
+            //1 获取注册到 MQClientInstance客户端实例 的所有broker实例发送 MQClientInstance客户端实例 HeartbeatData心跳数据
+            //2 获取注册到 MQClientInstance客户端实例 的所有MQConsumerInner，并对MQConsumerInner中支持filterServer订阅配置进行上传注册。
+            if (this.mQClientFactory != null) {
+                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
+            }
+        } catch (Exception e) {
+            throw new MQClientException("subscription exception", e);
+        }
+    }
+
+    /**************** unsubscribe 开始 ****************/
+
+    public void unsubscribe(String topic) {
+        this.rebalanceImpl.getSubscriptionInner().remove(topic);
+    }
+
+
+    /**************** updateCorePoolSize 开始 ****************/
+
+    /**
+     * 更新消费消息服务核心线程数
+     */
+    public void updateCorePoolSize(int corePoolSize) {
+        this.consumeMessageService.updateCorePoolSize(corePoolSize);
+    }
+
+    /**************** suspend 开始 ****************/
+
+    /**
+     * 暂停
+     */
+    public void suspend() {
+        this.pause = true;
+        log.info("suspend this consumer, {}", this.defaultMQPushConsumer.getConsumerGroup());
+    }
+
+    /**************** resume 开始 ****************/
+
+    /**
+     * 恢复
+     */
+    public void resume() {
+        this.pause = false;
+        doRebalance();
+        log.info("resume this consumer, {}", this.defaultMQPushConsumer.getConsumerGroup());
     }
 
 
@@ -841,15 +998,6 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
      */
     public void setPause(boolean pause) {
         this.pause = pause;
-    }
-
-    /**
-     * 恢复
-     */
-    public void resume() {
-        this.pause = false;
-        doRebalance();
-        log.info("resume this consumer, {}", this.defaultMQPushConsumer.getConsumerGroup());
     }
 
 
@@ -1125,11 +1273,6 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
 
-    public void registerMessageListener(MessageListener messageListener) {
-        this.messageListenerInner = messageListener;
-    }
-
-
     public void sendMessageBack(MessageExt msg, int delayLevel, final String brokerName)
             throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
         try {
@@ -1178,71 +1321,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         return this.rebalanceImpl.getSubscriptionInner();
     }
 
-    public void subscribe(String topic, String subExpression) throws MQClientException {
-        try {
-            SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(this.defaultMQPushConsumer.getConsumerGroup(),
-                    topic, subExpression);
-            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
-            if (this.mQClientFactory != null) {
-                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
-            }
-        } catch (Exception e) {
-            throw new MQClientException("subscription exception", e);
-        }
-    }
-
-    public void subscribe(String topic, String fullClassName, String filterClassSource) throws MQClientException {
-        try {
-            SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(this.defaultMQPushConsumer.getConsumerGroup(),
-                    topic, "*");
-            subscriptionData.setSubString(fullClassName);
-            subscriptionData.setClassFilterMode(true);
-            subscriptionData.setFilterClassSource(filterClassSource);
-            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
-            if (this.mQClientFactory != null) {
-                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
-            }
-
-        } catch (Exception e) {
-            throw new MQClientException("subscription exception", e);
-        }
-    }
-
-    public void subscribe(final String topic, final MessageSelector messageSelector) throws MQClientException {
-        try {
-            if (messageSelector == null) {
-                subscribe(topic, SubscriptionData.SUB_ALL);
-                return;
-            }
-
-            SubscriptionData subscriptionData = FilterAPI.build(topic,
-                    messageSelector.getExpression(), messageSelector.getExpressionType());
-
-            this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
-            if (this.mQClientFactory != null) {
-                this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
-            }
-        } catch (Exception e) {
-            throw new MQClientException("subscription exception", e);
-        }
-    }
-
-    public void suspend() {
-        this.pause = true;
-        log.info("suspend this consumer, {}", this.defaultMQPushConsumer.getConsumerGroup());
-    }
-
-    public void unsubscribe(String topic) {
-        this.rebalanceImpl.getSubscriptionInner().remove(topic);
-    }
 
     public void updateConsumeOffset(MessageQueue mq, long offset) {
         this.offsetStore.updateOffset(mq, offset, false);
     }
 
-    public void updateCorePoolSize(int corePoolSize) {
-        this.consumeMessageService.updateCorePoolSize(corePoolSize);
-    }
 
     public MessageExt viewMessage(String msgId)
             throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
