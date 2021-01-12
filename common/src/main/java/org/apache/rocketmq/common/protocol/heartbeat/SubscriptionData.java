@@ -34,11 +34,6 @@ public class SubscriptionData implements Comparable<SubscriptionData> {
     public final static String SUB_ALL = "*";
 
     /**
-     * 不知道干吗
-     */
-    private boolean classFilterMode = false;
-
-    /**
      * topic名称
      */
     private String topic;
@@ -68,6 +63,14 @@ public class SubscriptionData implements Comparable<SubscriptionData> {
      */
     private String expressionType = ExpressionType.TAG;
 
+    /**
+     * 是否支持filterServer
+     */
+    private boolean classFilterMode = false;
+
+    /**
+     * 上传到filterServer中过滤规则
+     */
     @JSONField(serialize = false)
     private String filterClassSource;
 
