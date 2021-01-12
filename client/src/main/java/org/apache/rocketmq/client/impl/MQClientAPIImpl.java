@@ -255,7 +255,7 @@ public class MQClientAPIImpl {
     }
 
     /**
-     * 通过寻址NameServer地址服务回去nameSrv地址
+     * 通过topAddressing 获取nameSrv地址
      *
      * @return NameServer地址
      */
@@ -1222,6 +1222,17 @@ public class MQClientAPIImpl {
         this.remotingClient.invokeOneway(MixAll.brokerVIPChannel(this.clientConfig.isVipChannelEnabled(), addr), request, timeoutMillis);
     }
 
+    /**
+     * 向broker发送心跳数据(生产者实例/消费者实例)
+     *
+     * @param addr          broker地址
+     * @param heartbeatData 当前MQ客户端实例心跳数据
+     * @param timeoutMillis 超时时间
+     * @return broker版本号
+     * @throws RemotingException    远程通信异常
+     * @throws MQBrokerException    Broker异常
+     * @throws InterruptedException 中断异常
+     */
     public int sendHearbeat(
             final String addr,
             final HeartbeatData heartbeatData,
@@ -1243,6 +1254,19 @@ public class MQClientAPIImpl {
         throw new MQBrokerException(response.getCode(), response.getRemark());
     }
 
+    /**
+     * 向broker注销指定生产者分组/消费者分组
+     *
+     * @param addr          broker地址
+     * @param clientID      MQ客户端实例
+     * @param producerGroup 生产者分组
+     * @param consumerGroup 消费者分组
+     * @param timeoutMillis 超时时间
+     *
+     * @throws RemotingException    远程通信异常
+     * @throws MQBrokerException    Broker异常
+     * @throws InterruptedException 中断异常
+     */
     public void unregisterClient(
             final String addr,
             final String clientID,

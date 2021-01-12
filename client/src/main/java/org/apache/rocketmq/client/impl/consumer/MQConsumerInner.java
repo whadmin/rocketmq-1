@@ -29,25 +29,80 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
  * 内部核心接口
  */
 public interface MQConsumerInner {
+
+    /**
+     * 获取消费分组
+     *
+     * @return 消费分组
+     */
     String groupName();
 
+    /**
+     * 获取消息模型
+     *
+     * @return 消息模型
+     */
     MessageModel messageModel();
 
+    /**
+     * 获取消费类型
+     *
+     * @return 消费类型
+     */
     ConsumeType consumeType();
 
+    /**
+     * 从哪里消费策略
+     *
+     * @return 从哪里消费策略
+     */
     ConsumeFromWhere consumeFromWhere();
 
+    /**
+     * 获取所有订阅配置信息集合
+     *
+     * @return 订阅配置信息集合
+     */
     Set<SubscriptionData> subscriptions();
 
+    /**
+     * 对MQConsumerInner执行负责均衡
+     */
     void doRebalance();
 
+    /**
+     * 持节化消费进度
+     */
     void persistConsumerOffset();
 
+    /**
+     * 更新topic订阅信息
+     *
+     * @param topic 消息topic
+     * @param info  消费队列集合
+     */
     void updateTopicSubscribeInfo(final String topic, final Set<MessageQueue> info);
 
+    /**
+     * 如果topic本地和远程获取路由信息存在差异,需要更新
+     * 通过客户端MQConsumerInner配置判断是否需要更新到本地
+     *
+     * @param topic 消息topic
+     * @return
+     */
     boolean isSubscribeTopicNeedUpdate(final String topic);
 
+    /**
+     * 是否是单元化
+     *
+     * @return
+     */
     boolean isUnitMode();
 
+    /**
+     * 获取定指定消费分组指定客户端Id运行信息
+     *
+     * @return 消费分组指定客户端Id运行信息
+     */
     ConsumerRunningInfo consumerRunningInfo();
 }

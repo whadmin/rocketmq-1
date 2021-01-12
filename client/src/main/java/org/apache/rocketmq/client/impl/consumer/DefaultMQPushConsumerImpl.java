@@ -1330,6 +1330,12 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         }
     }
 
+    /**
+     * 更新topic订阅信息
+     *
+     * @param topic 消息topic
+     * @param info  消费队列集合
+     */
     @Override
     public void updateTopicSubscribeInfo(String topic, Set<MessageQueue> info) {
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
@@ -1341,8 +1347,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
     /**
-     * 如果topic本地和远程获取路由信息是否需要更新
-     * 通过客户端MQConsumerInner配置判断
+     * 如果topic本地和远程获取路由信息存在差异,需要更新
+     * 通过客户端MQConsumerInner配置判断是否需要更新到本地
      */
     @Override
     public boolean isSubscribeTopicNeedUpdate(String topic) {
@@ -1356,6 +1362,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         return false;
     }
 
+    /**
+     * 是否是单元化
+     *
+     * @return 是否是单元化
+     */
     @Override
     public boolean isUnitMode() {
         return this.defaultMQPushConsumer.isUnitMode();
