@@ -23,10 +23,15 @@ import org.apache.rocketmq.common.constant.PermName;
  */
 public class TopicConfig {
     private static final String SEPARATOR = " ";
+
+    /**
+     * 默认读队列数量
+     */
     public static int defaultReadQueueNums = 16;
+    /**
+     * 默认写队列数量
+     */
     public static int defaultWriteQueueNums = 16;
-
-
     /**
      * 名称
      */
