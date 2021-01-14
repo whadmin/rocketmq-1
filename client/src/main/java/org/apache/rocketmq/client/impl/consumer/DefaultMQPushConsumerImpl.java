@@ -639,7 +639,6 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
 
-
     /**************** registerMessageListener 开始 ****************/
 
 
@@ -1089,7 +1088,14 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         final long beginTimestamp = System.currentTimeMillis();
 
+        //创建异步拉取消息回调
         PullCallback pullCallback = new PullCallback() {
+
+            /**
+             * 异步拉取消成功回调
+             *
+             * @param pullResult 拉取消息结果
+             */
             @Override
             public void onSuccess(PullResult pullResult) {
                 if (pullResult != null) {
@@ -1209,17 +1215,19 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             if (this.defaultMQPushConsumer.isPostSubscriptionWhenPull() && !sd.isClassFilterMode()) {
                 subExpression = sd.getSubString();
             }
-
             classFilter = sd.isClassFilterMode();
         }
 
+        //创建拉取消息系统标识
         int sysFlag = PullSysFlag.buildSysFlag(
                 commitOffsetEnable, // commitOffset
                 true, // suspend
                 subExpression != null, // subscription
                 classFilter // class filter
         );
+
         try {
+            //拉取消息核心方法
             this.pullAPIWrapper.pullKernelImpl(
                     pullRequest.getMessageQueue(),
                     subExpression,

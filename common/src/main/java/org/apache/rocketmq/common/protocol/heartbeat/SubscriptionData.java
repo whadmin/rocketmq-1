@@ -39,17 +39,17 @@ public class SubscriptionData implements Comparable<SubscriptionData> {
     private String topic;
 
     /**
-     * 过滤表达式
+     * 消息过滤的表达式（类型是 TAG OR SQL92）
      */
     private String subString;
 
     /**
-     * tag集合（不知道干吗）
+     * 消息过滤的方式为TAG时，过滤TAG
      */
     private Set<String> tagsSet = new HashSet<String>();
 
     /**
-     * code集合（不知道干吗）
+     * 消息过滤的方式为TAG时，过滤TAG(看代码没看出和tagsSet区别)
      */
     private Set<Integer> codeSet = new HashSet<Integer>();
 

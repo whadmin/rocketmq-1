@@ -42,9 +42,32 @@ import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 /**
- * 消息队列负载均衡服务
+ * 当前MQ客户端实例对当前消费分组以及MessageQueue队列服务实现
  * <p>
- * 负责分配当前 Consumer 可消费的消息队列( MessageQueue )。当有新的 Consumer 的加入或移除，都会重新分配消息队列。
+ * RebalanceImpl 1<-->1  MQConsumerInner【Pull或Push】
+ * <p>
+ * TopicA          对应3个MessageQueue   MessageQueue1,MessageQueue2,MessageQueue3
+ * consumerGroupA  对应2消费者  client1,client2
+ * consumerGroupB  对应2消费者  client1,client2
+ * <p>
+ * consumerGroupA 使用 BROADCASTING【广播消费】
+ * <p>
+ * 【MessageQueue1,MessageQueue2,MessageQueue3】-->client1【consumerGroupA，consumerGroupB】
+ * 【MessageQueue1,MessageQueue2,MessageQueue3】 --> client2【consumerGroupA，consumerGroupB】
+ * <p>
+ * consumerGroupA 使用 CLUSTERING【集群消费】
+ * <p>
+ * 【MessageQueue1,MessageQueue2】-->client1【consumerGroupA，consumerGroupB】
+ * 【MessageQueue3】 --> client2【consumerGroupA，consumerGroupB】
+ * <p>
+ * 当我们使用顺序消息的时候会在 group+client锁定MessageQueue 保证MessageQueue3消息只能给某一个consumerGroup一台机器消费【保证顺序】
+ * <p>
+ * ConcurrentMap<String group ,ConcurrentHashMap<MessageQueue,LockEntry>>mqLockTable= new ConcurrentHashMap<String,ConcurrentHashMap<MessageQueue,LockEntry>>(1024)
+ * <p>
+ * 每一个topic@group都存在一个消费进度
+ * <p>
+ * 我们针对CLUSTERING【集群消费】使用  RemoteBrokerOffsetStore【保存在broker】
+ * 我们针对CLUSTERING【集群消费】使用  LocalFileOffsetStore【保存在consumer】
  */
 public abstract class RebalanceImpl {
 
@@ -59,12 +82,18 @@ public abstract class RebalanceImpl {
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
 
     /**
-     * topic以及对应消息队列
+     * topic以及对topic分配消息队列
      */
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
             new ConcurrentHashMap<String, Set<MessageQueue>>();
+
+
     /**
-     * topic以及topic订阅配置信息
+     * topic以及topic订阅配置信息，该属性数据会在如下2个地方进行初始化
+     * 1 Consumer.start()启动时会读取当前Consumer所有订阅配置，使用FilterAPI转为SubscriptionData注册到rebalanceImpl
+     * this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
+     * 2 手动调用subscribe，使用FilterAPI转为SubscriptionData注册到rebalanceImpl
+     * this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
      */
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
             new ConcurrentHashMap<String, SubscriptionData>();
@@ -259,12 +288,26 @@ public abstract class RebalanceImpl {
         }
     }
 
+    public ConcurrentMap<String, SubscriptionData> getSubscriptionInner() {
+        return subscriptionInner;
+    }
+
+    /**
+     * 对所有订阅topic的消费队列进行负载均衡
+     *
+     * @param isOrder 是否顺序
+     */
     public void doRebalance(final boolean isOrder) {
+        //获取当前消费分组订阅topic以及topic订阅配置信息
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
+        //判断是否为null
         if (subTable != null) {
+            //遍历消费分组订阅topic以及topic订阅配置信息
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
+                //获取topic
                 final String topic = entry.getKey();
                 try {
+                    //对指定topic的消费队列进行负载均衡
                     this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -273,16 +316,20 @@ public abstract class RebalanceImpl {
                 }
             }
         }
-
         this.truncateMessageQueueNotMyTopic();
     }
 
-    public ConcurrentMap<String, SubscriptionData> getSubscriptionInner() {
-        return subscriptionInner;
-    }
 
+    /**
+     * 对指定topic的消费队列进行负载均衡（针对当前消费分组）
+     *
+     * @param topic   消息topic
+     * @param isOrder 是否顺序
+     */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
+        //判断消费分组消息模型
         switch (messageModel) {
+            //广播
             case BROADCASTING: {
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
@@ -300,6 +347,7 @@ public abstract class RebalanceImpl {
                 }
                 break;
             }
+            //集群
             case CLUSTERING: {
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);

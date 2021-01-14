@@ -832,7 +832,7 @@ public class MQClientAPIImpl {
     }
 
     /**
-     * 处理响应命令
+     * 处理发送消息响应命令
      *
      * @param brokerName broker节点名称
      * @param msg        消息
@@ -919,6 +919,19 @@ public class MQClientAPIImpl {
         return sendResult;
     }
 
+    /**
+     * 拉取消息
+     *
+     * @param addr              broekr实例地址
+     * @param requestHeader     拉取消息头部
+     * @param timeoutMillis     超时时间
+     * @param communicationMode 拉取消息模式
+     * @param pullCallback      拉取回调
+     * @return
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     public PullResult pullMessage(
             final String addr,
             final PullMessageRequestHeader requestHeader,
@@ -928,14 +941,20 @@ public class MQClientAPIImpl {
     ) throws RemotingException, MQBrokerException, InterruptedException {
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.PULL_MESSAGE, requestHeader);
 
+        //判断拉取消息模式
         switch (communicationMode) {
+            //单向
             case ONEWAY:
                 assert false;
                 return null;
+            //异步
             case ASYNC:
+                //异步拉取消息
                 this.pullMessageAsync(addr, request, timeoutMillis, pullCallback);
                 return null;
+            //同步
             case SYNC:
+                //同步拉取消息
                 return this.pullMessageSync(addr, request, timeoutMillis);
             default:
                 assert false;
@@ -945,31 +964,59 @@ public class MQClientAPIImpl {
         return null;
     }
 
+    /**
+     * 异步拉取消息
+     *
+     * @param addr
+     * @param request
+     * @param timeoutMillis
+     * @param pullCallback
+     * @throws RemotingException    远端调用异常
+     * @throws InterruptedException 线程中断异常
+     */
     private void pullMessageAsync(
             final String addr,
             final RemotingCommand request,
             final long timeoutMillis,
             final PullCallback pullCallback
     ) throws RemotingException, InterruptedException {
+        //使用MQ远程调用客户端异步调用broker拉取消息
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
+
+            //调用回调
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
+                //获取拉取消息响应命令
                 RemotingCommand response = responseFuture.getResponseCommand();
+                //如果存在响应命令
                 if (response != null) {
                     try {
+                        //处理拉取消息响应获取拉取结果
                         PullResult pullResult = MQClientAPIImpl.this.processPullResponse(response);
                         assert pullResult != null;
+                        //拉取回调成功处理
                         pullCallback.onSuccess(pullResult);
                     } catch (Exception e) {
+                        //拉取回调异常处理
                         pullCallback.onException(e);
                     }
-                } else {
+                }
+                //如果不存在响应命令
+                else {
+                    //请求已发出未收到响应
                     if (!responseFuture.isSendRequestOK()) {
+                        //拉取回调异常处理
                         pullCallback.onException(new MQClientException("send request failed to " + addr + ". Request: " + request, responseFuture.getCause()));
-                    } else if (responseFuture.isTimeout()) {
+                    }
+                    //请求超时
+                    else if (responseFuture.isTimeout()) {
+                        //拉取回调异常处理
                         pullCallback.onException(new MQClientException("wait response from " + addr + " timeout :" + responseFuture.getTimeoutMillis() + "ms" + ". Request: " + request,
                                 responseFuture.getCause()));
-                    } else {
+                    }
+                    //其他
+                    else {
+                        //拉取回调异常处理
                         pullCallback.onException(new MQClientException("unknown reason. addr: " + addr + ", timeoutMillis: " + timeoutMillis + ". Request: " + request, responseFuture.getCause()));
                     }
                 }
@@ -977,26 +1024,54 @@ public class MQClientAPIImpl {
         });
     }
 
+    /**
+     * 同步拉取消息
+     *
+     * @param addr          broker实例地址
+     * @param request       拉取消息请求
+     * @param timeoutMillis 请求超时
+     * @return 拉取结果
+     * @throws RemotingException    远端调用异常
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     private PullResult pullMessageSync(
             final String addr,
             final RemotingCommand request,
             final long timeoutMillis
     ) throws RemotingException, InterruptedException, MQBrokerException {
+        //使用MQ远程调用客户端同步调用broker拉取消息
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
+        //断言响应命令是否存在
         assert response != null;
+        //处理拉取消息响应获取拉取结果
         return this.processPullResponse(response);
     }
 
+    /**
+     * 处理拉取消息响应命令获取拉取消息结果
+     *
+     * @param response 拉取消息响应
+     * @return 拉取消息结果
+     * @throws MQBrokerException    broker异步
+     * @throws InterruptedException 线程中断异常
+     */
     private PullResult processPullResponse(
             final RemotingCommand response) throws MQBrokerException, RemotingCommandException {
         PullStatus pullStatus = PullStatus.NO_NEW_MSG;
+        //判断响应编码
         switch (response.getCode()) {
+            //成功
             case ResponseCode.SUCCESS:
+                //设置拉取发现消息
                 pullStatus = PullStatus.FOUND;
                 break;
+            //拉取未肇东
             case ResponseCode.PULL_NOT_FOUND:
+                //设置拉取没有新消息
                 pullStatus = PullStatus.NO_NEW_MSG;
                 break;
+
             case ResponseCode.PULL_RETRY_IMMEDIATELY:
                 pullStatus = PullStatus.NO_MATCHED_MSG;
                 break;
@@ -1007,13 +1082,15 @@ public class MQClientAPIImpl {
             default:
                 throw new MQBrokerException(response.getCode(), response.getRemark());
         }
-
+        //解析拉取消息响应头部
         PullMessageResponseHeader responseHeader =
                 (PullMessageResponseHeader) response.decodeCommandCustomHeader(PullMessageResponseHeader.class);
 
+        //构造拉取结果
         return new PullResultExt(pullStatus, responseHeader.getNextBeginOffset(), responseHeader.getMinOffset(),
                 responseHeader.getMaxOffset(), null, responseHeader.getSuggestWhichBrokerId(), response.getBody());
     }
+
 
     public MessageExt viewMessage(final String addr, final long phyoffset, final long timeoutMillis)
             throws RemotingException, MQBrokerException, InterruptedException {
@@ -1262,7 +1339,6 @@ public class MQClientAPIImpl {
      * @param producerGroup 生产者分组
      * @param consumerGroup 消费者分组
      * @param timeoutMillis 超时时间
-     *
      * @throws RemotingException    远程通信异常
      * @throws MQBrokerException    Broker异常
      * @throws InterruptedException 中断异常

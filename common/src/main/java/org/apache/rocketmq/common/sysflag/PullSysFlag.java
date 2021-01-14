@@ -16,6 +16,9 @@
  */
 package org.apache.rocketmq.common.sysflag;
 
+/**
+ * 拉取消息系统标识
+ */
 public class PullSysFlag {
     private final static int FLAG_COMMIT_OFFSET = 0x1;
     private final static int FLAG_SUSPEND = 0x1 << 1;
@@ -23,8 +26,17 @@ public class PullSysFlag {
     private final static int FLAG_CLASS_FILTER = 0x1 << 3;
     private final static int FLAG_LITE_PULL_MESSAGE = 0x1 << 4;
 
+    /**
+     * 创建拉取消息系统标识
+     *
+     * @param commitOffset 提交
+     * @param suspend      暂停
+     * @param subscription 消息过滤表达式
+     * @param classFilter  是否使用类过滤
+     * @return
+     */
     public static int buildSysFlag(final boolean commitOffset, final boolean suspend,
-        final boolean subscription, final boolean classFilter) {
+                                   final boolean subscription, final boolean classFilter) {
         int flag = 0;
 
         if (commitOffset) {
@@ -47,7 +59,7 @@ public class PullSysFlag {
     }
 
     public static int buildSysFlag(final boolean commitOffset, final boolean suspend,
-        final boolean subscription, final boolean classFilter, final boolean litePull) {
+                                   final boolean subscription, final boolean classFilter, final boolean litePull) {
         int flag = buildSysFlag(commitOffset, suspend, subscription, classFilter);
 
         if (litePull) {
@@ -73,6 +85,12 @@ public class PullSysFlag {
         return (sysFlag & FLAG_SUBSCRIPTION) == FLAG_SUBSCRIPTION;
     }
 
+    /**
+     * 是否通过FilterServer拉取消息
+     *
+     * @param sysFlag
+     * @return
+     */
     public static boolean hasClassFilterFlag(final int sysFlag) {
         return (sysFlag & FLAG_CLASS_FILTER) == FLAG_CLASS_FILTER;
     }

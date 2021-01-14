@@ -1586,7 +1586,7 @@ public class MQClientInstance {
     }
 
     /**
-     * 在MQClientINSTANCE 客户端实例中 指定broker节点，指定broker实例查询结果
+     * 在MQClientINSTANCE 客户端实例中 指定broker节点，指定broker实例类型的实例查询结果
      *
      * @param brokerName     broker节点名称
      * @param brokerId       broker实例id

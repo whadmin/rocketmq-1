@@ -17,7 +17,7 @@
 package org.apache.rocketmq.client.impl;
 
 /**
- * 发送消息模式
+ * 发送/拉取 消息模式
  */
 public enum CommunicationMode {
     /**
