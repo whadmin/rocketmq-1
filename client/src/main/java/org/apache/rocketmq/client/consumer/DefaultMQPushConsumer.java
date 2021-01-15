@@ -75,7 +75,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private MessageModel messageModel = MessageModel.CLUSTERING;
 
     /**
-     * 消费者消费策略
+     * 【在消费模型为广播模式前提下】
+     *  消费进度存储在本地。启动时MQ消费客户端时，可以配置消费者消费策略
      * //默认策略，从该队列最尾开始消费，即跳过历史消息
      * CONSUME_FROM_LAST_OFFSET,
      * //从队列最开始开始消费，即历史消息（还储存在broker的）全部消费一遍
@@ -86,7 +87,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
     /**
-     * consumeFromWhere.CONSUME_FROM_TIMESTAMP时，默认消息回溯时间节点. 时间格式是* 20131223171201
+     * 【在消费模型为广播模式前提下】
+     * consumeFromWhere.CONSUME_FROM_TIMESTAMP 时，默认消息回溯时间节点. 时间格式是* 2013 12 23 17 12 01
      */
     private String consumeTimestamp = UtilAll.timeMillisToHumanString3(System.currentTimeMillis() - (1000 * 60 * 30));
 
@@ -106,7 +108,9 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private MessageListener messageListener;
 
     /**
-     * 消费进度存储（存在本地/远程两种策略）
+     * 消费进度
+     * 在消费模型为广播模式消费进度存储在本地
+     * 在消费模型为广播模式消费进度存储在远程broker
      */
     private OffsetStore offsetStore;
 
