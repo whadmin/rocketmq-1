@@ -162,7 +162,7 @@ public class MQClientInstance {
     private final NettyClientConfig nettyClientConfig;
 
     /**
-     * MQ客户端实现
+     * MQ远程客户端实现
      */
     private final MQClientAPIImpl mQClientAPIImpl;
 
@@ -1258,7 +1258,7 @@ public class MQClientInstance {
 
 
     /**
-     *从 MQClientInstance客户端实例 注册消费者分组
+     * 从 MQClientInstance客户端实例 注册消费者分组
      *
      * @param group    消费者分组名称
      * @param consumer MQConsumerInner
@@ -1704,19 +1704,28 @@ public class MQClientInstance {
 
 
     /**
-     * @param topic
-     * @param group
+     * 查询指定消费分组所有MQ消费客户端实例
+     *
+     * @param topic 消息topic
+     * @param group 消费分组
      * @return
      */
     public List<String> findConsumerIdList(final String topic, final String group) {
+        //在MQClientINSTANCE 客户端实例中获取存储topic消息某个随机broker实例
         String brokerAddr = this.findBrokerAddrByTopic(topic);
+        //如果不存在
         if (null == brokerAddr) {
+            // 从Namerser获取topic对应的路由信息
+            // 更新到 MQClientInstance客户端实例 属性中
             this.updateTopicRouteInfoFromNameServer(topic);
+            //重新在MQClientINSTANCE 客户端实例中获取存储topic消息某个随机broker实例
             brokerAddr = this.findBrokerAddrByTopic(topic);
         }
 
+        //如果存在
         if (null != brokerAddr) {
             try {
+                //使用MQ远程客户端实现调用broker查询指定消费分组所有MQ消费客户端实例
                 return this.mQClientAPIImpl.getConsumerIdListByGroup(brokerAddr, group, 3000);
             } catch (Exception e) {
                 log.warn("getConsumerIdListByGroup exception, " + brokerAddr + " " + group, e);

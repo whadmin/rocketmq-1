@@ -40,8 +40,11 @@ import org.apache.rocketmq.common.protocol.body.ProcessQueueInfo;
  */
 public class ProcessQueue {
     public final static long REBALANCE_LOCK_MAX_LIVE_TIME =
-        Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockMaxLiveTime", "30000"));
+            Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockMaxLiveTime", "30000"));
     public final static long REBALANCE_LOCK_INTERVAL = Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockInterval", "20000"));
+    /**
+     *
+     */
     private final static long PULL_MAX_IDLE_TIME = Long.parseLong(System.getProperty("rocketmq.client.pull.pullMaxIdleTime", "120000"));
     private final InternalLogger log = ClientLogger.getLog();
     /**
@@ -62,6 +65,10 @@ public class ProcessQueue {
      *
      */
     private final AtomicLong msgSize = new AtomicLong();
+
+    /**
+     * 消息处理队列锁
+     */
     private final Lock lockConsume = new ReentrantLock();
     /**
      * A subset of msgTreeMap, will only be used when orderly consume
@@ -69,20 +76,33 @@ public class ProcessQueue {
     private final TreeMap<Long, MessageExt> consumingMsgOrderlyTreeMap = new TreeMap<Long, MessageExt>();
     private final AtomicLong tryUnlockTimes = new AtomicLong(0);
     private volatile long queueOffsetMax = 0L;
+
+
+    /**
+     * 标记丢弃，如果丢弃不在拉取消息
+     */
     private volatile boolean dropped = false;
+
     /**
      * 最后一次拉取时间戳
      */
     private volatile long lastPullTimestamp = System.currentTimeMillis();
+
     /**
-     *
+     * 最后一次消费时间戳
      */
     private volatile long lastConsumeTimestamp = System.currentTimeMillis();
+
     /**
-     * 是否锁定
+     * 是否锁定（一般消息队列需要重新负载均衡分配给MQ消费客户端实例时会锁定，具体实现在 RebalanceImpl 消费者实例负载均衡服务中）
      */
     private volatile boolean locked = false;
+
+    /**
+     * 最后锁定时间
+     */
     private volatile long lastLockTimestamp = System.currentTimeMillis();
+
     private volatile boolean consuming = false;
     private volatile long msgAccCnt = 0;
 
