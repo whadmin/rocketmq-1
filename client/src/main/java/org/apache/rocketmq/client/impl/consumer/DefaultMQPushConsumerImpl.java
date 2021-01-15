@@ -81,6 +81,10 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
  * MQConsumerInner内部核心实现
+ * <p>
+ * 1 负责MQPushConsumer接口核心实现
+ * 2 负责MQAdmin接口实现
+ * 3 拉取消息核心逻辑
  */
 public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
@@ -1248,6 +1252,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         }
     }
 
+    /**
+     * 校验当前消费分组服务是否停止，停止抛出异常
+     *
+     * @throws MQClientException
+     */
     private void makeSureStateOK() throws MQClientException {
         if (this.serviceState != ServiceState.RUNNING) {
             throw new MQClientException("The consumer service state not OK, "
@@ -1400,21 +1409,32 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         return subSet;
     }
 
+    /**
+     * 当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列
+     */
     @Override
     public void doRebalance() {
+        //判断是否消费暂停
         if (!this.pause) {
+            //当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列
             this.rebalanceImpl.doRebalance(this.isConsumeOrderly());
         }
     }
 
+    /**
+     * 当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列久化消费进度
+     */
     @Override
     public void persistConsumerOffset() {
         try {
+            //校验当前消费分组服务是否停止，停止抛出异常
             this.makeSureStateOK();
+            //获取当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列
             Set<MessageQueue> mqs = new HashSet<MessageQueue>();
             Set<MessageQueue> allocateMq = this.rebalanceImpl.getProcessQueueTable().keySet();
             mqs.addAll(allocateMq);
 
+            //对获取当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列度进行持久化
             this.offsetStore.persistAll(mqs);
         } catch (Exception e) {
             log.error("group: " + this.defaultMQPushConsumer.getConsumerGroup() + " persistConsumerOffset exception", e);

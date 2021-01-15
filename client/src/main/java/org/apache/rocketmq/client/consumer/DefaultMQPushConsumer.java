@@ -50,7 +50,7 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  * DefaultMQPushConsumer 是Consumer客户端应用程序API路口.
  * DefaultMQPushConsumer 是Consumer核心配置。
  * DefaultMQPushConsumer类实现了MQPushConsumer接口，但并非MQPushConsumer接口核心实现，
- * 其核心实现依赖于内部DefaultMQPushConsumerImpl属性。
+ * DefaultMQPushConsume内部实现依赖于DefaultMQPushConsumerImpl
  */
 public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsumer {
 
@@ -76,7 +76,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * 【在消费模型为广播模式前提下】
-     *  消费进度存储在本地。启动时MQ消费客户端时，可以配置消费者消费策略
+     * 消费进度存储在本地。第一次启动MQ客户端实例消费消费队列时，可以配置消费者消费策略
      * //默认策略，从该队列最尾开始消费，即跳过历史消息
      * CONSUME_FROM_LAST_OFFSET,
      * //从队列最开始开始消费，即历史消息（还储存在broker的）全部消费一遍
@@ -93,7 +93,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private String consumeTimestamp = UtilAll.timeMillisToHumanString3(System.currentTimeMillis() - (1000 * 60 * 30));
 
     /**
-     * 用来分配MessageQueue和consumer实例clientID一对一关系的策略算法
+     * 用来分配MessageQueue和 MQClientInstance MQ客户端实例 分配策略算法
      */
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy;
 

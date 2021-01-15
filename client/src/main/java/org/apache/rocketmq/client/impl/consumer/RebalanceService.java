@@ -21,23 +21,53 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
+/**
+ * 负载均衡服务
+ * 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
+ * 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
+ */
 public class RebalanceService extends ServiceThread {
+
+    /**
+     * 服务线程阻塞超时时间
+     */
     private static long waitInterval =
-        Long.parseLong(System.getProperty(
-            "rocketmq.client.rebalance.waitInterval", "20000"));
+            Long.parseLong(System.getProperty(
+                    "rocketmq.client.rebalance.waitInterval", "20000"));
+
+    /**
+     * 内部日志
+     */
     private final InternalLogger log = ClientLogger.getLog();
+
+    /**
+     * MQ客户端实例对象
+     */
     private final MQClientInstance mqClientFactory;
 
+    /**
+     * RebalanceService 构造函数
+     *
+     * @param mqClientFactory MQ客户端实例对象
+     */
     public RebalanceService(MQClientInstance mqClientFactory) {
         this.mqClientFactory = mqClientFactory;
     }
 
+    /**
+     * 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
+     * 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
+     */
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");
 
+        //判断是否需要停止服务线程
         while (!this.isStopped()) {
+            //阻塞服务线程,有超时
             this.waitForRunning(waitInterval);
+            //获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
+            //对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
             this.mqClientFactory.doRebalance();
         }
 

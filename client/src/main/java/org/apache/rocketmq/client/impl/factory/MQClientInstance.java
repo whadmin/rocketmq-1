@@ -86,16 +86,26 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
  * MQ客户端实例对象
- * MQClientInstance 服务于如下4个角色 RPC远程调用客户端通用实现
+ * 1 MQClientInstance 服务于如下4个角色 RPC远程调用客户端通用实现
  * <p>
  * DefaultMQAdminExtImpl            运维系统Admin
  * DefaultMQProducerImpl            生成消息Producer
  * DefaultMQPushConsumerImpl        推送消息Consumer
  * DefaultMQPullConsumerImpl        拉取消息Consumer
  * <p>
- * MQClientInstance 通过 MQClientManager工厂对象创建，每一个JVM内部客户端ID相同的MQClientInstance是复用的
+ * 2 MQClientInstance 通过 MQClientManager工厂对象创建，每一个MQClientInstance表示一个进程
  * <p>
- * MQClientInstance 对象可以给同时作用于DefaultMQProducerImpl,DefaultMQPushConsumerImpl，DefaultMQPullConsumerImpl
+ * 3 MQ消费客户端实例 MQClientInstance（进程）和消费分组关系（多对多）
+ * 1一个消费分组可以存在多个消费者，每一个消费者对应到一个MQ客户端实例 MQClientInstance 一个进程
+ * 2一个MQ客户端实例 MQClientInstance，或一个进程内也可以可以配置多个消费分组
+ * MQ消费客户端实例 MQClientInstance（进程）和生产分组关系（多对多）
+ * 1一个生产分组可以存在多个消费者，每一个消费者对应到一个MQ客户端实例 MQClientInstance 一个进程
+ * 2一个MQ客户端实例 MQClientInstance，或一个进程内也可以可以配置多个生产分组
+ * <p>
+ * 4 核心功能
+ * 4.1 定时任务 startScheduledTask
+ * 4.2 获取获取注册到 MQClientInstance客户端实例的所有MQConsumerInner对每个MQConsumerInner执行负责均衡
+ * 4.3 Producer/Consumer 通用功能
  */
 public class MQClientInstance {
 
@@ -1464,8 +1474,8 @@ public class MQClientInstance {
     }
 
     /**
-     * 获取获取注册到 MQClientInstance客户端实例的所有MQConsumerInner
-     * 对每个MQConsumerInner执行负责均衡
+     * 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
+     * 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
      */
     public void doRebalance() {
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {

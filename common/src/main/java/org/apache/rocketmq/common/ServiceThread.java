@@ -219,18 +219,20 @@ public abstract class ServiceThread implements Runnable {
     }
 
     /**
-     *
+     * 阻塞服务线程,有超时
      * @param interval 阻塞超时时间
      */
     protected void waitForRunning(long interval) {
+        //判断是否由新任务通知，如果存在跳过阻塞
         if (hasNotified.compareAndSet(true, false)) {
             this.onWaitEnd();
             return;
         }
 
-        //entry to wait
+        //重置同步锁
         waitPoint.reset();
 
+        //阻塞服务线程
         try {
             waitPoint.await(interval, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {

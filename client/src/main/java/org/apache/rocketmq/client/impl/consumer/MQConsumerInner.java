@@ -26,7 +26,7 @@ import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 /**
- * 内部核心接口
+ * 消费分组内部核心接口
  */
 public interface MQConsumerInner {
 
@@ -66,12 +66,12 @@ public interface MQConsumerInner {
     Set<SubscriptionData> subscriptions();
 
     /**
-     * 对MQConsumerInner执行负责均衡
+     * 当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列
      */
     void doRebalance();
 
     /**
-     * 持节化消费进度
+     * 当前 MQClientInstance MQ消费客户端实例，在当前消费分组，负载均衡分配消息队列久化消费进度
      */
     void persistConsumerOffset();
 
