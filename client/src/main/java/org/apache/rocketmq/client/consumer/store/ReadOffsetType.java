@@ -17,7 +17,7 @@
 package org.apache.rocketmq.client.consumer.store;
 
 /**
- * 读取偏移量类型
+ * 读取进度类型
  */
 public enum ReadOffsetType {
 

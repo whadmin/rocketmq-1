@@ -18,13 +18,14 @@ package org.apache.rocketmq.client.consumer.store;
 
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
- * 消费偏移量持久化接口
+ * 消费进度持久化接口
  */
 public interface OffsetStore {
 
@@ -33,43 +34,57 @@ public interface OffsetStore {
      */
     void load() throws MQClientException;
 
+
     /**
-     * Update the offset,store it in memory
+     * 更新指定消费队列缓存中消费进度
+     *
+     * @param mq           消费队列
+     * @param offset       消费进度
+     * @param increaseOnly 是否使用CAS保证一定修改成功
      */
     void updateOffset(final MessageQueue mq, final long offset, final boolean increaseOnly);
 
     /**
-     * Get offset from local storage
+     * 读取消费队列进度，可以选择缓存或持久化读取
+     * 集群模式缓存读取本地内存，持久化读取远程broker
+     * 广播模式缓存读取本地内存，持久化读取本地文件
      *
-     * @return The fetched offset
+     * @param mq   消费队列
+     * @param type 缓存/持久化
      */
     long readOffset(final MessageQueue mq, final ReadOffsetType type);
 
     /**
-     * Persist all offsets,may be in local storage or remote name server
+     * 对消费队列集合进度进行持久化 （集群模式发送到远程broker，广播模式写入本地文件）
+     *
+     * @param mqs 消费队列集合
      */
     void persistAll(final Set<MessageQueue> mqs);
 
     /**
-     * Persist the offset,may be in local storage or remote name server
+     * 对消费队列进度进行持久化 （集群模式发送到远程到broker，广播模式写入本地文件）
+     *
+     * @param mq 消费队列
      */
     void persist(final MessageQueue mq);
 
     /**
-     * Remove offset
+     * 清空指定消息队列本地消费进度缓存
+     *
+     * @param mq 消费队列
      */
     void removeOffset(MessageQueue mq);
 
     /**
-     * @return The cloned offset table of given topic
+     * 克隆缓存中消费进度
+     *
+     * @param topic 消息topic
      */
     Map<MessageQueue, Long> cloneOffsetTable(String topic);
 
     /**
-     * @param mq
-     * @param offset
-     * @param isOneway
+     * 集群模式更新broker存储的消费进度
      */
     void updateConsumeOffsetToBroker(MessageQueue mq, long offset, boolean isOneway) throws RemotingException,
-        MQBrokerException, InterruptedException, MQClientException;
+            MQBrokerException, InterruptedException, MQClientException;
 }
