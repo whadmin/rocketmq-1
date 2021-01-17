@@ -49,10 +49,22 @@ public class MessageAccessor {
         return msg.getProperty(MessageConst.PROPERTY_CORRECTION_FLAG);
     }
 
+    /**
+     * 设置消息原始消息ID，消息重试会新创建一个消息需要创建关联原始消息ID
+     *
+     * @param msg             消息
+     * @param originMessageId 消息原始id
+     */
     public static void setOriginMessageId(final Message msg, String originMessageId) {
         putProperty(msg, MessageConst.PROPERTY_ORIGIN_MESSAGE_ID, originMessageId);
     }
 
+    /**
+     * 获取消息原始消息ID，消息重试会新创建一个消息需要创建关联原始消息ID
+     *
+     * @param msg 消息
+     * @return
+     */
     public static String getOriginMessageId(final Message msg) {
         return msg.getProperty(MessageConst.PROPERTY_ORIGIN_MESSAGE_ID);
     }
@@ -65,30 +77,72 @@ public class MessageAccessor {
         return msg.getProperty(MessageConst.PROPERTY_MQ2_FLAG);
     }
 
+    /**
+     * 设置消息重试次数
+     *
+     * @param msg            消息
+     * @param reconsumeTimes 重试次数
+     */
     public static void setReconsumeTime(final Message msg, String reconsumeTimes) {
         putProperty(msg, MessageConst.PROPERTY_RECONSUME_TIME, reconsumeTimes);
     }
 
+    /**
+     * 获取消息重试次数
+     *
+     * @param msg 消息
+     * @return 重试次数
+     */
     public static String getReconsumeTime(final Message msg) {
         return msg.getProperty(MessageConst.PROPERTY_RECONSUME_TIME);
     }
 
+    /**
+     * 设置消息最大重试次数
+     *
+     * @param msg               消息
+     * @param maxReconsumeTimes 最大重试次数
+     */
     public static void setMaxReconsumeTimes(final Message msg, String maxReconsumeTimes) {
         putProperty(msg, MessageConst.PROPERTY_MAX_RECONSUME_TIMES, maxReconsumeTimes);
     }
 
+    /**
+     * 获取消息最大重试次数
+     *
+     * @param msg 消息
+     * @return 最大重试次数
+     */
     public static String getMaxReconsumeTimes(final Message msg) {
         return msg.getProperty(MessageConst.PROPERTY_MAX_RECONSUME_TIMES);
     }
 
+    /**
+     * 设置消息开始提交给并发消息监听器消费的时间戳
+     *
+     * @param msg                           消息
+     * @param propertyConsumeStartTimeStamp 时间戳
+     */
     public static void setConsumeStartTimeStamp(final Message msg, String propertyConsumeStartTimeStamp) {
         putProperty(msg, MessageConst.PROPERTY_CONSUME_START_TIMESTAMP, propertyConsumeStartTimeStamp);
     }
 
+    /**
+     * 获取消息开始提交给并发消息监听器消费的时间戳
+     *
+     * @param msg 消息
+     * @return 时间戳
+     */
     public static String getConsumeStartTimeStamp(final Message msg) {
         return msg.getProperty(MessageConst.PROPERTY_CONSUME_START_TIMESTAMP);
     }
 
+    /**
+     * 克隆消息
+     *
+     * @param msg 消息
+     * @return
+     */
     public static Message cloneMessage(final Message msg) {
         Message newMsg = new Message(msg.getTopic(), msg.getBody());
         newMsg.setFlag(msg.getFlag());

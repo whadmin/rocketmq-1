@@ -19,7 +19,8 @@ package org.apache.rocketmq.client.impl.consumer;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
- * 拉取请求。每一个拉取请求对应一个消息队列拉取任务
+ * 拉取请求。
+ * 每一个拉取请求对应了某个消费分组对指定消息队列拉取消息请求。
  */
 public class PullRequest {
 
@@ -34,7 +35,7 @@ public class PullRequest {
     private MessageQueue messageQueue;
 
     /**
-     * 消费队列拉取消息处理队列
+     * 消息处理队列
      */
     private ProcessQueue processQueue;
 
@@ -44,7 +45,7 @@ public class PullRequest {
     private long nextOffset;
 
     /**
-     * 是否锁定
+     * 是否锁定（第一次开始被消费后锁定）
      */
     private boolean lockedFirst = false;
 

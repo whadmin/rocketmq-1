@@ -43,7 +43,7 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 /**
  * MQ消费客户端分配消费队列负载均衡实现
- *
+ * <p>
  * 1 每个RebalanceImpl对象都针对一个消费分组来说的。
  * PS: 每个消费分组对应一个MQConsumer，每一个MQConsumer都存在一个RebalanceImpl
  * <p>
@@ -378,16 +378,13 @@ public abstract class RebalanceImpl {
     /************************************** 当前MQ消费客户端实例，在当前消费分组（当前对象所属MQConsumer），负载均衡分配消息队列 **************************************/
 
     /**
-     * 1 当前MQ消费客户端实例，在当前消费分组（当前对象所属MQConsumer），负载均衡分配消息队列
+     * 1 当前MQ消费客户端实例，在当前消费分组（当前对象所属MQConsumer）所消topic费消费队列进行负载均衡
      * <p>
-     * 2 该方法由MQ消费客户端实例负载均衡服务定时调用
-     * RebalanceImpl.doRebalance(boolean)  (org.apache.rocketmq.client.impl.consumer)
-     * MQClientInstance.doRebalance()  (org.apache.rocketmq.client.impl.factory)
-     * RebalanceService.run()  (org.apache.rocketmq.client.impl.consumer)
+     * 2 负载均衡分配消费队列会记录到本地,并为其创建一个消息处理队列添加到 processQueueTable
      * <p>
-     * 3 每次调用会将当前MQ消费客户端实例，在当前消费分组分配消息队列记录到本地 processQueueTable
+     * 3 每一个分配消费队列会会创建一个PullRequest,添加到 PullMessageService.pullRequestQueue
      * <p>
-     * 4 在第一次调用或会分配消费队列发生变更时会创建一个PullRequest,添加到 PullMessageService.pullRequestQueue
+     * 4 当当前MQ消费客户端实例分配消费队列发生变更时，processQueueTable,PullMessageService.pullRequestQueue也会同步变更
      *
      * @param isOrder 是否顺序
      */
@@ -416,8 +413,13 @@ public abstract class RebalanceImpl {
 
 
     /**
-     * 对指定topic的消费队列进行负载均衡（针对当前MQ消费客户端实例，在当前消费分组（当前对象所属MQConsumer））
-     *
+     * 1 当前MQ消费客户端实例，在当前消费分组（当前对象所属MQConsumer），对指定topic的消费队列进行负载均衡
+     * <p>
+     * 2 负载均衡分配消费队列会记录到本地,并为其创建一个消息处理队列添加到 processQueueTable
+     * <p>
+     * 3 每一个分配消费队列会会创建一个PullRequest,添加到 PullMessageService.pullRequestQueue
+     * <p>
+     * 4 当当前MQ消费客户端实例分配消费队列发生变更时，processQueueTable,PullMessageService.pullRequestQueue也会同步变更
      * @param topic   消息topic
      * @param isOrder 是否顺序
      */
@@ -514,7 +516,7 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * 从processQueueTable删除接触订阅关系的消息队列
+     * 从processQueueTable中删除取消订阅关系的消息队列
      */
     private void truncateMessageQueueNotMyTopic() {
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
@@ -675,14 +677,32 @@ public abstract class RebalanceImpl {
     public abstract ConsumeType consumeType();
 
     /**
-     * 清空消息队列进度 （模板方法）
+     * 清空消息队列本地进度缓存
+     * <p>
+     * 集群模式
+     *   清空本地缓存
+     * 广播模式
+     *    什么也不做
      *
-     * @param mq
+     * @param mq 消息队列
      */
     public abstract void removeDirtyOffset(final MessageQueue mq);
 
     /**
-     * 获取消费队列下次拉取逻辑偏移量 （模板方法）
+     * 获取消费队列下次拉取逻辑偏移量
+     *
+     * 集群模式
+     *    获取远程broker存储消费进度
+     * 广播模式,
+     *    如果消费队列非第一次消费，获取本地文件存储消费进度
+     *    如果消费队列第一次消费，通过ConsumeFromWhere 消费者消费策略获取消费进度
+     *
+     * //默认策略，从该队列最尾开始消费，即跳过历史消息
+     * CONSUME_FROM_LAST_OFFSET,
+     * //从队列最开始开始消费，即历史消息（还储存在broker的）全部消费一遍
+     * CONSUME_FROM_FIRST_OFFSET,
+     * //从某个时间点开始消费，和setConsumeTimestamp()配合使用，默认是半个小时以前
+     * CONSUME_FROM_TIMESTAMP,
      *
      * @param mq 消息队列
      * @return
@@ -690,7 +710,7 @@ public abstract class RebalanceImpl {
     public abstract long computePullFromWhere(final MessageQueue mq);
 
     /**
-     * 添加到添加到 PullMessageService.pullRequestQueue （模板方法）
+     * 将拉取请求列表添加到 PullMessageService.pullRequestQueue （模板方法）
      *
      * @param pullRequestList 拉取请求列表
      */

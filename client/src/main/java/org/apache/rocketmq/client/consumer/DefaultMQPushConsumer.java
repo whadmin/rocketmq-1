@@ -30,6 +30,7 @@ import org.apache.rocketmq.client.consumer.store.OffsetStore;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
+import org.apache.rocketmq.client.impl.consumer.ProcessQueue;
 import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.client.trace.AsyncTraceDispatcher;
 import org.apache.rocketmq.client.trace.TraceDispatcher;
@@ -47,9 +48,9 @@ import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
+ * Consumer客户端（对应一个消费分组）
  * DefaultMQPushConsumer 是Consumer客户端应用程序API路口.
- * DefaultMQPushConsumer 是Consumer核心配置。
- * DefaultMQPushConsumer类实现了MQPushConsumer接口，但并非MQPushConsumer接口核心实现，
+ * DefaultMQPushConsumer 是对Consumer核心配置类。
  * DefaultMQPushConsume内部实现依赖于DefaultMQPushConsumerImpl
  */
 public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsumer {
@@ -137,6 +138,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * 队列级别的流量控制阈值，默认情况下每个消息队列最多会缓存1000条消息
      * 考虑{@code pullBatchSize}，瞬时值可能超过限制
+     * 我们会将拉取消息发到消息处理队列中 {@link ProcessQueue}
      */
     private int pullThresholdForQueue = 1000;
 
@@ -144,6 +146,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * 主题级别的流量控制阈值，默认值为-1（无限制）* <p> * {@code pullThresholdForQueue}的值将被覆盖并基于*
      * {@code pullThresholdForTopic}进行计算，如果它不是无限制的
      * 例如，如果pullThresholdForTopic的值为1000并且为此使用者分配了10个消息队列，则将pullThresholdForQueue设置为100
+     * 我们会将拉取消息发到消息处理队列中 {@link ProcessQueue}
      */
     private int pullThresholdForTopic = -1;
 
@@ -151,6 +154,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * 队列级别限制缓存的消息大小，默认情况下每个消息队列将缓存最多100条MiB邮件，
      * 考虑{@code pullBatchSize}，瞬时值可能超出限制
      * 消息大小仅由消息BODY测量，因此不准确
+     * 我们会将拉取消息发到消息处理队列中 {@link ProcessQueue}
      */
     private int pullThresholdSizeForQueue = 100;
 
@@ -158,6 +162,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * 主题级别限制缓存消息大小，默认值为-1 MiB（无限制）
      * {@code pullThresholdSizeForQueue}的值将被覆盖并基于* {@code pullThresholdSizeForTopic}计算，如果它不是无限制的,
      * 例如，如果pullThresholdSizeForTopic的值为1000 MiB且10个消息队列被分配给此消费者，则pullThresholdSizeForQueue将设置为100 MiB
+     * 我们会将拉取消息发到消息处理队列中 {@link ProcessQueue}
      */
     private int pullThresholdSizeForTopic = -1;
 

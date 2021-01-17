@@ -22,9 +22,10 @@ import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
 /**
- * 负载均衡服务
- * 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
- * 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
+ * 负载均衡线程服务（当前MQClientInstanceMQ消费客户端实例）
+ * <p>
+ * 1 定时获取获取注册到MQClientInstanceMQ消费客户端实例的所有MQConsumerInner(消费分组),
+ * 2 针对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
  */
 public class RebalanceService extends ServiceThread {
 
@@ -55,14 +56,15 @@ public class RebalanceService extends ServiceThread {
     }
 
     /**
-     * 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
-     * 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
+     * 负载均衡服务核心工作
+     * 1 获取获取注册到MQClientInstance客户端实例的所有MQConsumerInner(消费分组),
+     * 2 对当前MQClientInstance客户端实例在当前MQConsumerInner(消费分组)中消费队列进行负载均衡分配
      */
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");
 
-        //判断是否需要停止服务线程
+        //循环中判断是否需要停止服务线程
         while (!this.isStopped()) {
             //阻塞服务线程,有超时
             this.waitForRunning(waitInterval);

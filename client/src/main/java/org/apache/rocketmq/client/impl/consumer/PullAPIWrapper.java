@@ -55,7 +55,9 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  * <p>
  * 提供如下功能：
  * 1 拉取消息
- * 1.1 拉取消息选择borker实例类型（可以客户端指定，也可以按照broker拉取结果自动变更）
+ * 1.1 拉取消息选择borker实例类型（master实例，还是某个salve实例）
+ * 1.1.1可以客户端指定，
+ * 1.1.2可以按照broker拉取结果自动变更
  * 2 对拉取消息进行处理
  * 2.1 更新指定消息队列从哪个broker实例类型拉取消息（来源于拉取结果）
  * 2.2 解析消息，并根据订阅配置信息按照tag过滤消息
@@ -214,10 +216,10 @@ public class PullAPIWrapper {
      * @param subExpression              消息过滤过滤表达式
      * @param expressionType             消息过滤表达类型
      * @param subVersion                 订阅版本号
-     * @param offset                     拉取队列开始位置
+     * @param offset                     拉取队列开始位置（源至于broker消费进度）
      * @param maxNums                    拉取消息数量
      * @param sysFlag                    拉取请求系统标识
-     * @param commitOffset               提交消费进度
+     * @param commitOffset               已提交消费进度(本地缓存消费进度,可能未同步到broker)
      * @param brokerSuspendMaxTimeMillis broker挂起请求最大时间
      * @param timeoutMillis              请求broker超时时长
      * @param communicationMode          发送消息模式

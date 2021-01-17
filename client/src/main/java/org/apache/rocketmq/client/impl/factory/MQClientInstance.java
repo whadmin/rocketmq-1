@@ -229,7 +229,7 @@ public class MQClientInstance {
     private final DefaultMQProducer defaultMQProducer;
 
     /**
-     * Consumer统计服务【为MQConsumerInner提供服务】
+     * 消费统计服务【为MQConsumerInner提供服务】
      */
     private final ConsumerStatsManager consumerStatsManager;
 

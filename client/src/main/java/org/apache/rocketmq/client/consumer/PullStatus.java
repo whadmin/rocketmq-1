@@ -29,7 +29,7 @@ public enum PullStatus {
      */
     NO_NEW_MSG,
     /**
-     * 过滤结果不匹配
+     * 没有匹配消息（过滤）
      */
     NO_MATCHED_MSG,
     /**

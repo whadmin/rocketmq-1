@@ -18,16 +18,23 @@ package org.apache.rocketmq.client.impl.consumer;
 
 import java.util.List;
 
+import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.body.ConsumeMessageDirectlyResult;
 
 /**
- * 消费消息服务，实现所谓的"Push-被动"消费机制
+ * 消费消息服务
  * <p>
- * 1 拉取的消息装成 ConsumeRequest
- * 2 ConsumeRequest 提交给ConsumeMessageService实现类
- * 2 ConsumeMessageService 实现类 负责回调用户 MessageListener 消息监听器
+ * 1 负责消费{@link PullRequest}拉取请求拉取的消息
+ * 1.1 每一个拉取请求对应了某个消费分组对指定消息队列拉取消息请求。处理拉取请求核心实现 {@link DefaultMQPushConsumerImpl#pullMessage(PullRequest)}
+ * 1.2 每一次拉取请求拉取消息会提交到{@link ConsumeMessageService}
+ * 1.3 提交到{@link ConsumeMessageService}消息会根据{@link DefaultMQPushConsumer#consumeMessageBatchMaxSize}
+ *     配置将消息拆分到一个或多个{@link org.apache.rocketmq.client.impl.consumer.ConsumeMessageConcurrentlyService.ConsumeRequest}消费请求任务
+ *     提交到消息线程池消费
+ * 1.4 {@link org.apache.rocketmq.client.impl.consumer.ConsumeMessageConcurrentlyService.ConsumeRequest}
+ *     将需要消费的消息回调{@link org.apache.rocketmq.client.consumer.listener.MessageListener}
+ * 2 负责消费 broker接收管理后台重发的消息
  */
 public interface ConsumeMessageService {
 
@@ -68,7 +75,7 @@ public interface ConsumeMessageService {
     int getCorePoolSize();
 
     /**
-     * 执行消费消息
+     * 处理重发的消息
      *
      * @param msg        消费消息
      * @param brokerName broker节点名称
@@ -77,11 +84,12 @@ public interface ConsumeMessageService {
     ConsumeMessageDirectlyResult consumeMessageDirectly(final MessageExt msg, final String brokerName);
 
     /**
-     * 提交消息请求
+     * 处理消费请求
+     * 消费 {@link DefaultMQPushConsumerImpl#pullMessage(PullRequest)}中获取的消息
      *
-     * @param msgs 消费消息
-     * @param processQueue 执行队列
-     * @param messageQueue 消费队列
+     * @param msgs             消费消息
+     * @param processQueue     执行队列
+     * @param messageQueue     消费队列
      * @param dispathToConsume 派遣消费
      */
     void submitConsumeRequest(

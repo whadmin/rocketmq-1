@@ -25,7 +25,7 @@ import org.apache.rocketmq.common.UtilAll;
 public class ProcessQueueInfo {
 
     /**
-     * 提交逻辑偏移量
+     * 已提交消费进度(本地缓存消费进度,可能未同步到broker)
      */
     private long commitOffset;
 
@@ -40,12 +40,12 @@ public class ProcessQueueInfo {
     private long cachedMsgMaxOffset;
 
     /**
-     * 缓存消息数量
+     * 缓存消息总数量
      */
     private int cachedMsgCount;
 
     /**
-     * 缓存消息大小
+     * 缓存消息总大小
      */
     private int cachedMsgSizeInMiB;
 
@@ -70,17 +70,17 @@ public class ProcessQueueInfo {
     private boolean locked;
 
     /**
-     * 最后尝试加锁时间
+     * 尝试加锁次数
      */
     private long tryUnlockTimes;
 
     /**
-     * 最后加载时间
+     * 最后加锁时间
      */
     private long lastLockTimestamp;
 
     /**
-     * 是否关闭
+     * 是否丢弃
      */
     private boolean droped;
 

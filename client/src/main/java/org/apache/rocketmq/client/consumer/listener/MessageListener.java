@@ -16,8 +16,11 @@
  */
 package org.apache.rocketmq.client.consumer.listener;
 
+import org.apache.rocketmq.client.impl.consumer.ConsumeMessageService;
+
 /**
  * 消息监听器,用于接收异步传递的消息。
+ * 回调来源于 {@link ConsumeMessageService}
  */
 public interface MessageListener {
 }
